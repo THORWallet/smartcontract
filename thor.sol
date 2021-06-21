@@ -28,7 +28,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     //not dynamic
     uint256 private xCoin=10;
     uint256 private _totalSupply;
-
+    bool private mintDone = false;
     address private _owner;
     
     constructor() {
@@ -85,6 +85,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     
     function burn(uint256 amount) public virtual {
         require(_vesting[msg.sender] < block.timestamp);
+        require(mintDone);
 
         uint256 accountBalance = _balances[msg.sender];
         require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
@@ -100,6 +101,7 @@ contract ERC20 is IERC20, IERC20Metadata {
         require(msg.sender == _owner);
         require(account.length == amount.length);
         require(amount.length == transferableFrom.length);
+        require(!mintDone);
         
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
@@ -112,6 +114,11 @@ contract ERC20 is IERC20, IERC20Metadata {
             _balances[account[i]] += amount[i];
             emit Transfer(address(0), account[i], amount[i]);
         }
+    }
+    
+    function mintFinish() public virtual {
+        require(msg.sender == _owner);
+        mintDone = true;
     }
 
     function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
@@ -137,6 +144,7 @@ contract ERC20 is IERC20, IERC20Metadata {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
         require(_vesting[sender] < block.timestamp);
+        require(mintDone);
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
@@ -160,6 +168,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     function _approve(address owner, address spender, uint256 amount) internal virtual {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
+        require(mintDone);
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
