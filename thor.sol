@@ -37,11 +37,11 @@ contract ERC20 is IERC20, IERC20Metadata {
 
     
     function name() public view virtual override returns (string memory) {
-        return "THOR SWISS COIN";
+        return "THORWallet Token";
     }
 
     function symbol() public view virtual override returns (string memory) {
-        return "TSC";
+        return "TWRUNE";
     }
 
    
