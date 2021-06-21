@@ -22,11 +22,13 @@ interface IERC20Metadata is IERC20 {
 contract ERC20 is IERC20, IERC20Metadata {
     mapping(address => uint256) private _balances;
     mapping(address => uint256) private _vesting;
-    mapping(address => uint256) private _moreThanXCoins;
     mapping(address => mapping(address => uint256)) private _allowances;
+    
+    //tiers
+    mapping(address => mapping(uint256 => uint256)) private _tiers;
+    uint256[] _valueTiers;
+    
 
-    //not dynamic
-    uint256 private xCoin=10;
     uint256 private _totalSupply;
     bool private mintDone = false;
     address private _owner;
@@ -37,11 +39,11 @@ contract ERC20 is IERC20, IERC20Metadata {
 
     
     function name() public view virtual override returns (string memory) {
-        return "THORWallet Token";
+        return "THOR SWISS COIN";
     }
 
     function symbol() public view virtual override returns (string memory) {
-        return "TWRUNE";
+        return "TSC";
     }
 
    
@@ -136,8 +138,13 @@ contract ERC20 is IERC20, IERC20Metadata {
         return true;
     }
     
-    function hasMoreThanXCoins(address account) public virtual returns (uint256) {
-        return _moreThanXCoins[account];
+    function tiers(address account, uint256 index) public view returns (uint256) {
+        return _tiers[account][_valueTiers[index]];
+    }
+    
+    function addTier(uint256 value) public virtual {
+        require(msg.sender == _owner);
+        _valueTiers.push(value);
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
@@ -153,14 +160,18 @@ contract ERC20 is IERC20, IERC20Metadata {
         }
         _balances[recipient] += amount;
         
-        //add address to the list if it has more coins than the threshold
-        if(_balances[recipient] >= xCoin && _moreThanXCoins[recipient] == 0) {
-            _moreThanXCoins[recipient] = block.timestamp;
+        for (uint256 i=0;i<_valueTiers.length;i++) {
+            //add address to the list if it has more coins than the threshold
+            if(_balances[recipient] >= _valueTiers[i] && _tiers[recipient][_valueTiers[i]] == 0) {
+               _tiers[recipient][_valueTiers[i]] = block.timestamp;
+            }
+            //remove coin if it has less coins than the threshold
+            if(_balances[sender] < _valueTiers[i] && _tiers[sender][_valueTiers[i]] > 0) {
+                delete _tiers[sender][_valueTiers[i]];
+            }
         }
-        //remove coin if it has less coins than the threshold
-        if(_balances[sender] < xCoin && _moreThanXCoins[sender] > 0) {
-            delete _moreThanXCoins[sender];
-        }
+        
+        
 
         emit Transfer(sender, recipient, amount);
     }
