@@ -96,16 +96,16 @@ contract ERC20 is IERC20, IERC20Metadata {
         emit Transfer(msg.sender, address(0), amount);
     }
     
-    function mint(address[] calldata account, uint256[] calldata amount, uint256[] calldata validFrom) public virtual {
+    function mint(address[] calldata account, uint256[] calldata amount, uint256[] calldata transferableFrom) public virtual {
         require(msg.sender == _owner);
         require(account.length == amount.length);
-        require(amount.length == validFrom.length);
+        require(amount.length == transferableFrom.length);
         
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
 
-            if(validFrom[i] != 0) {
-                _vesting[account[i]] = validFrom[i];
+            if(transferableFrom[i] != 0) {
+                _vesting[account[i]] = transferableFrom[i];
             }
 
             _totalSupply += amount[i];
