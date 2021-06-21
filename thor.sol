@@ -138,8 +138,8 @@ contract ERC20 is IERC20, IERC20Metadata {
         return true;
     }
     
-    function tiers(address account, uint256 index) public view returns (uint256) {
-        return _tiers[account][_valueTiers[index]];
+    function tiers(address account, uint256 value) public view returns (uint256) {
+        return _tiers[account][value];
     }
     
     function addTier(uint256 value) public virtual {
