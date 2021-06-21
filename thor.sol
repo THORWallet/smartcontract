@@ -28,8 +28,6 @@ contract ERC20 is IERC20, IERC20Metadata {
     //not dynamic
     uint256 private xCoin=10;
     uint256 private _totalSupply;
-    string private _name = "THOR SWISS COIN";
-    string private _symbol = "TSC";
 
     address private _owner;
     
@@ -39,11 +37,11 @@ contract ERC20 is IERC20, IERC20Metadata {
 
     
     function name() public view virtual override returns (string memory) {
-        return _name;
+        return "THOR SWISS COIN";
     }
 
     function symbol() public view virtual override returns (string memory) {
-        return _symbol;
+        return "TSC";
     }
 
    
