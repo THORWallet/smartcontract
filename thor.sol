@@ -41,7 +41,7 @@ contract ERC20 is IERC20, IERC20Metadata {
 
     
     function name() public view virtual override returns (string memory) {
-        return "Thorwallet Token";
+        return "THORWallet Token";
     }
 
     function symbol() public view virtual override returns (string memory) {
