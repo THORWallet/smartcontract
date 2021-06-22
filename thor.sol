@@ -24,10 +24,12 @@ contract ERC20 is IERC20, IERC20Metadata {
     mapping(address => uint256) private _vesting;
     mapping(address => mapping(address => uint256)) private _allowances;
     
-    //tiers
+    // tiers - map of address to a map of tier-values to the timestamp when the tier was reached
     mapping(address => mapping(uint256 => uint256)) private _tiers;
-    uint256[] _valueTiers;
+    uint256[] _tierValues;
     
+    event TierReached(address indexed recipient, uint256 tierValue, uint256 tierReachedAt);
+    event TierLeft(address indexed spender, uint256 tierValue, uint256 tierLeftAt, uint256 tierReachedAt);
 
     uint256 private _totalSupply;
     bool private mintDone = false;
@@ -144,7 +146,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     
     function addTier(uint256 value) public virtual {
         require(msg.sender == _owner);
-        _valueTiers.push(value);
+        _tierValues.push(value);
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
@@ -160,19 +162,19 @@ contract ERC20 is IERC20, IERC20Metadata {
         }
         _balances[recipient] += amount;
         
-        for (uint256 i=0;i<_valueTiers.length;i++) {
+        for (uint256 i=0;i<_tierValues.length;i++) {
             //add address to the list if it has more coins than the threshold
-            if(_balances[recipient] >= _valueTiers[i] && _tiers[recipient][_valueTiers[i]] == 0) {
-               _tiers[recipient][_valueTiers[i]] = block.timestamp;
+            if(_balances[recipient] >= _tierValues[i] && _tiers[recipient][_tierValues[i]] == 0) {
+                _tiers[recipient][_tierValues[i]] = block.timestamp;
+                emit TierReached(recipient, _tierValues[i], block.timestamp);
             }
             //remove coin if it has less coins than the threshold
-            if(_balances[sender] < _valueTiers[i] && _tiers[sender][_valueTiers[i]] > 0) {
-                delete _tiers[sender][_valueTiers[i]];
+            if(_balances[sender] < _tierValues[i] && _tiers[sender][_tierValues[i]] > 0) {
+                emit TierLeft(sender, _tierValues[i], block.timestamp, _tiers[sender][_tierValues[i]]);
+                delete _tiers[sender][_tierValues[i]];
             }
         }
         
-        
-
         emit Transfer(sender, recipient, amount);
     }
 
