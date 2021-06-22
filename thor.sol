@@ -27,6 +27,7 @@ contract ERC20 is IERC20, IERC20Metadata {
     // tiers - map of address to a map of tier-values to the timestamp when the tier was reached
     mapping(address => mapping(uint256 => uint256)) private _tiers;
     uint256[] _tierValues;
+    uint256 _firstActiveTierIndex = 0;
     
     event TierReached(address indexed recipient, uint256 tierValue, uint256 tierReachedAt);
     event TierLeft(address indexed spender, uint256 tierValue, uint256 tierLeftAt, uint256 tierReachedAt);
@@ -148,6 +149,30 @@ contract ERC20 is IERC20, IERC20Metadata {
         require(msg.sender == _owner);
         _tierValues.push(value);
     }
+    
+    function deactivateTiersBefore(uint256 firstActiveTierIndex) public virtual {
+        require(msg.sender == _owner);
+        if (_firstActiveTierIndex != firstActiveTierIndex) {
+            _firstActiveTierIndex = firstActiveTierIndex;
+        }
+    }
+    
+    function updateTiersOf(address _address) internal virtual {
+        require(_address != address(0));
+
+        for (uint256 i=_firstActiveTierIndex;i<_tierValues.length;i++) {
+            // add timestamp to the list if it has more coins than the threshold
+            if(_balances[_address] >= _tierValues[i] && _tiers[_address][_tierValues[i]] == 0) {
+                _tiers[_address][_tierValues[i]] = block.timestamp;
+                emit TierReached(_address, _tierValues[i], block.timestamp);
+            }
+            // remove timestamp if it has less coins than the threshold
+            if(_balances[_address] < _tierValues[i] && _tiers[_address][_tierValues[i]] > 0) {
+                emit TierLeft(_address, _tierValues[i], block.timestamp, _tiers[_address][_tierValues[i]]);
+                delete _tiers[_address][_tierValues[i]];
+            }
+        }
+    }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
         require(sender != address(0), "ERC20: transfer from the zero address");
@@ -162,13 +187,13 @@ contract ERC20 is IERC20, IERC20Metadata {
         }
         _balances[recipient] += amount;
         
-        for (uint256 i=0;i<_tierValues.length;i++) {
-            //add address to the list if it has more coins than the threshold
+        for (uint256 i=_firstActiveTierIndex;i<_tierValues.length;i++) {
+            // add timestamp to the list if it has more coins than the threshold
             if(_balances[recipient] >= _tierValues[i] && _tiers[recipient][_tierValues[i]] == 0) {
                 _tiers[recipient][_tierValues[i]] = block.timestamp;
                 emit TierReached(recipient, _tierValues[i], block.timestamp);
             }
-            //remove coin if it has less coins than the threshold
+            // remove timestamp if it has less coins than the threshold
             if(_balances[sender] < _tierValues[i] && _tiers[sender][_tierValues[i]] > 0) {
                 emit TierLeft(sender, _tierValues[i], block.timestamp, _tiers[sender][_tierValues[i]]);
                 delete _tiers[sender][_tierValues[i]];
