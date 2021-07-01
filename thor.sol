@@ -2,16 +2,10 @@
 
 pragma solidity ~0.8.4;
 
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-}
+import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 interface IERC20Metadata is IERC20 {
     function name() external view returns (string memory);
@@ -19,27 +13,34 @@ interface IERC20Metadata is IERC20 {
     function decimals() external view returns (uint8);
 }
 
-contract ERC20 is IERC20, IERC20Metadata {
+interface IERC20Permit {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;
+    function nonces(address owner) external view returns (uint256);
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+}
+
+interface IERC677 {
+  function transferAndCall(address to, uint value, bytes calldata data) external returns (bool success);
+  event TransferWithData(address indexed from, address indexed to, uint value, bytes data);
+}
+
+interface IERC677Receiver {
+  function onTokenTransfer(address _sender, uint _value, bytes calldata _data) external;
+}
+
+contract ERC20 is IERC20Metadata, IERC20Permit, IERC677, EIP712 {
     mapping(address => uint256) private _balances;
     mapping(address => uint256) private _vesting;
     mapping(address => mapping(address => uint256)) private _allowances;
-    
-    // tiers - map of address to a map of tier-values to the timestamp when the tier was reached
-    mapping(address => mapping(uint256 => uint256)) private _tiers;
-    uint256[] _tierValues;
-    
-    event TierReached(address indexed recipient, uint256 tierValue, uint256 tierReachedAt);
-    event TierLeft(address indexed spender, uint256 tierValue, uint256 tierLeftAt, uint256 tierReachedAt);
 
     uint256 private _totalSupply;
     bool private mintDone = false;
     address private _owner;
     
-    constructor() {
+    constructor(string memory _name) EIP712(_name, "1") {
         _owner = msg.sender;
     }
 
-    
     function name() public view virtual override returns (string memory) {
         return "THORWallet Token";
     }
@@ -140,13 +141,33 @@ contract ERC20 is IERC20, IERC20Metadata {
         return true;
     }
     
-    function tiers(address account, uint256 value) public view returns (uint256) {
-        return _tiers[account][value];
+    function transferAndCall(address _to, uint _value, bytes calldata _data) public override returns (bool success) {
+        transfer(_to, _value);
+        emit TransferWithData(msg.sender, _to, _value, _data);
+        if (isContract(_to)) {
+            contractFallback(msg.sender, _to, _value, _data);
+        }
+        return true;
     }
     
-    function addTier(uint256 value) public virtual {
-        require(msg.sender == _owner);
-        _tierValues.push(value);
+    function transferFromAndCall(address sender, address _to, uint _value, bytes calldata _data) public returns (bool success) {
+        transferFrom(sender, _to, _value);
+        emit TransferWithData(sender, _to, _value, _data);
+        if (isContract(_to)) {
+            contractFallback(sender, _to, _value, _data);
+        }
+        return true;
+    }
+
+    function contractFallback(address sender, address _to, uint _value, bytes calldata _data)  internal virtual {
+        IERC677Receiver receiver = IERC677Receiver(_to);
+        receiver.onTokenTransfer(sender, _value, _data);
+    }
+
+    function isContract(address _addr) private view returns (bool hasCode) {
+        uint length;
+        assembly { length := extcodesize(_addr) }
+        return length > 0;
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
@@ -162,19 +183,6 @@ contract ERC20 is IERC20, IERC20Metadata {
         }
         _balances[recipient] += amount;
         
-        for (uint256 i=0;i<_tierValues.length;i++) {
-            //add address to the list if it has more coins than the threshold
-            if(_balances[recipient] >= _tierValues[i] && _tiers[recipient][_tierValues[i]] == 0) {
-                _tiers[recipient][_tierValues[i]] = block.timestamp;
-                emit TierReached(recipient, _tierValues[i], block.timestamp);
-            }
-            //remove coin if it has less coins than the threshold
-            if(_balances[sender] < _tierValues[i] && _tiers[sender][_tierValues[i]] > 0) {
-                emit TierLeft(sender, _tierValues[i], block.timestamp, _tiers[sender][_tierValues[i]]);
-                delete _tiers[sender][_tierValues[i]];
-            }
-        }
-        
         emit Transfer(sender, recipient, amount);
     }
 
@@ -187,4 +195,33 @@ contract ERC20 is IERC20, IERC20Metadata {
         emit Approval(owner, spender, amount);
     }
     
+    //************ ERC777 ********************
+    
+    using Counters for Counters.Counter;
+    mapping (address => Counters.Counter) private _nonces;
+    bytes32 private immutable _PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    
+
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) public virtual override {
+        require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address signer = ECDSA.recover(hash, v, r, s);
+        require(signer == owner, "ERC20Permit: invalid signature");
+        _approve(owner, spender, value);
+    }
+
+    function nonces(address owner) public view virtual override returns (uint256) {
+        return _nonces[owner].current();
+    }
+
+    function DOMAIN_SEPARATOR() external view override returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    function _useNonce(address owner) internal virtual returns (uint256 current) {
+        Counters.Counter storage nonce = _nonces[owner];
+        current = nonce.current();
+        nonce.increment();
+    }
 }
