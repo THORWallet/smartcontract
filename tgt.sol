@@ -46,7 +46,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677, EIP712 {
     }
 
     function symbol() public view virtual override returns (string memory) {
-        return "THW";
+        return "TGT";
     }
 
    
