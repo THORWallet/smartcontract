@@ -40,7 +40,6 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     struct Vesting {
         //96bit are enough: max value is 1000000000000000000000000000
         //96bit are:                    79228162514264337593543950336
-        uint96 cliffAmount;
         uint96 vestingStartAmount;
         //64bit for timestamp in seconds lasts 584 billion years
         uint64 vestingDuration;
@@ -121,6 +120,14 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         return true;
     }
     
+    function vesting(address sender, uint64 timestamp) public view returns (uint256) {
+        uint256 linearVesting = _vesting[sender].vestingStartAmount/_vesting[sender].vestingDuration*(timestamp - _live);
+        if(linearVesting<_vesting[sender].vestingStartAmount) {
+            return _vesting[sender].vestingStartAmount - linearVesting;
+        } 
+        return 0;
+    }
+    
     function burn(uint256 amount) public virtual {
         _transfer(msg.sender, address(0), amount);
         _totalSupply -= amount;
@@ -139,7 +146,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
             require(account[i] != address(0), "ERC20: mint to the zero address");
 
             if(cliffAmounts[i] != 0) {
-                _vesting[account[i]] = Vesting(cliffAmounts[i], vestingTotalAmounts[i] - cliffAmounts[i], vestingDurations[i]);
+                _vesting[account[i]] = Vesting(vestingTotalAmounts[i] - cliffAmounts[i], vestingDurations[i]);
             }
 
             _totalSupply += amount[i];
@@ -238,9 +245,11 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
         
-        if(_vesting[msg.sender].cliffAmount > 0) {
+        if(_vesting[msg.sender].vestingDuration > 0) {
             uint256 linearVesting = _vesting[msg.sender].vestingStartAmount/_vesting[msg.sender].vestingDuration*(block.timestamp - _live);
-            require(senderBalance - amount >= _vesting[msg.sender].cliffAmount + linearVesting);
+            if(linearVesting<_vesting[msg.sender].vestingStartAmount) {
+                require(senderBalance - amount >= _vesting[msg.sender].vestingStartAmount - linearVesting);
+            }
         }
         
         unchecked {
