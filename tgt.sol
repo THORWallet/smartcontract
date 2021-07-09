@@ -34,17 +34,42 @@ interface IERC677Receiver {
 
 contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     mapping(address => uint256) private _balances;
-    mapping(address => uint256) private _vesting;
+    mapping(address => Vesting) private _vesting;
     mapping(address => mapping(address => uint256)) private _allowances;
+    
+    struct Vesting {
+        //96bit are enough: max value is 1000000000000000000000000000
+        //96bit are:                    79228162514264337593543950336
+        uint96 cliffAmount;
+        uint96 vestingStartAmount;
+        //64bit for timestamp in seconds lasts 584 billion years
+        uint64 vestingDuration;
+    }
 
     uint256 private _totalSupply;
-    uint256 private _live = 0;
+    uint64 private _live = 0;
     address private _owner;
+    uint64 private _lastEmitAt;
+    uint8 private _curveSteep =  4;
+    uint8 private _curveEnd =  96; //8 years in month
     
-    uint256 public constant MAX_SUPPLY = 1000000000 ether;
+    uint96 constant MAX_SUPPLY  = 1000000000 * (10**18); //1 billion
+    uint16 constant CURVE_TOP =  989;
+    uint64 constant MAX_INT = 2**64 - 1;
     
-    constructor(string memory _name) EIP712(_name, "1") {
+    constructor() EIP712(symbol(), "1") {
         _owner = msg.sender;
+    }
+    
+    function setCurve(uint8 curveSteep, uint8 curveEnd) public virtual {
+        require(_owner == msg.sender, "TGT: not the owner");
+        _curveSteep = curveSteep;
+        _curveEnd = curveEnd;
+    }
+    
+    function transferOwner(address newOwner) public virtual {
+        require(_owner == msg.sender, "TGT: not the owner");
+        _owner = newOwner;
     }
 
     function name() public view virtual override returns (string memory) {
@@ -69,6 +94,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        require(recipient != address(0), "ERC20: transfer to the zero address");
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -83,6 +109,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        require(recipient != address(0), "ERC20: transfer to the zero address");
         _transfer(sender, recipient, amount);
 
         uint256 currentAllowance = _allowances[sender][msg.sender];
@@ -95,30 +122,24 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
     
     function burn(uint256 amount) public virtual {
-        require(_vesting[msg.sender] < block.timestamp);
-        require(_live != 0);
-
-        uint256 accountBalance = _balances[msg.sender];
-        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
-        unchecked {
-            _balances[msg.sender] = accountBalance - amount;
-        }
+        _transfer(msg.sender, address(0), amount);
         _totalSupply -= amount;
-
-        emit Transfer(msg.sender, address(0), amount);
     }
     
-    function mint(address[] calldata account, uint256[] calldata amount, uint256[] calldata transferableFrom) public virtual {
+    function mint(address[] calldata account, uint96[] calldata amount, uint96[] calldata cliffAmounts, 
+                  uint96[] calldata vestingTotalAmounts, uint64[] calldata vestingDurations) public virtual {
         require(msg.sender == _owner);
         require(account.length == amount.length);
-        require(amount.length == transferableFrom.length);
+        require(amount.length == cliffAmounts.length);
+        require(cliffAmounts.length == vestingTotalAmounts.length);
+        require(vestingTotalAmounts.length == vestingDurations.length);
         require(_live == 0);
         
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
 
-            if(transferableFrom[i] != 0) {
-                _vesting[account[i]] = transferableFrom[i];
+            if(cliffAmounts[i] != 0) {
+                _vesting[account[i]] = Vesting(cliffAmounts[i], vestingTotalAmounts[i] - cliffAmounts[i], vestingDurations[i]);
             }
 
             _totalSupply += amount[i];
@@ -127,23 +148,47 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         }
     }
     
-    function emitTokens() public virtual {
-        uint256 timeInS = block.timestamp - _live;
-        require(timeInS > 0);
-        timeInM = timeInS / (60 * 24 * 30);
+    function emitTokens() internal virtual {
+        uint64 timeInM = uint64((block.timestamp - _live) / (60 * 24 * 30));
+        if (timeInM <= _lastEmitAt) {
+            return;
+        }
+
+        uint256 expectedSupplyNow;
+        uint256 expectedSupplyPre;
+        if (timeInM >= _curveEnd) {
+            expectedSupplyPre = CURVE_TOP * 1000000 * 10**18;
+            expectedSupplyNow = MAX_SUPPLY;
+            timeInM = MAX_INT;
+        } else {
+            expectedSupplyNow = emitCurve(timeInM) * 10**18;
+            expectedSupplyPre = emitCurve(_lastEmitAt) * 10**18;
+        }
         
-        uint256 supply = MAX_SUPPLY / (2 + timeInM);
-        
-        uint256 missing = supply - _totalSupply;
-        require(missing > 0);
-        _totalSupply += missing;
-        _balances[_owner] += missing;
-        
+        //towards the end the curve may go down, don't fail
+        if(expectedSupplyPre >= expectedSupplyNow) {
+            return;
+        }
+        uint256 additionalAmount = expectedSupplyNow - expectedSupplyPre;
+        _totalSupply += additionalAmount;
+        _balances[_owner] += additionalAmount;
+        _lastEmitAt = timeInM;
+    }
+    
+    //https://www.desmos.com/calculator/fmbbfvtwux
+    //(989 - (x/4-23)^2 * 1000000
+    //989 controls the total height
+    //4 - CURVE_STEEP - controls how steep the curve is
+    //23 shifts the curve 
+    //max will be reached in 92 month
+    function emitCurve(uint256 x) internal virtual returns (uint256) {
+        uint256 i = (x/_curveSteep - 23)**2;
+        return (CURVE_TOP - i) * 1000000; 
     }
     
     function mintFinish() public virtual {
         require(msg.sender == _owner);
-        _live = block.timestamp;
+        _live = uint64(block.timestamp);
     }
 
     function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
@@ -165,7 +210,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         transfer(to, value);
         emit TransferWithData(msg.sender, to, value, data);
         if (isContract(to)) {
-            contractFallback(msg.sender, to, value, data);
+            IERC677Receiver(to).onTokenTransfer(msg.sender, value, data);
         }
         return true;
     }
@@ -174,14 +219,9 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         transferFrom(sender, to, value);
         emit TransferWithData(sender, to, value, data);
         if (isContract(to)) {
-            contractFallback(sender, to, value, data);
+            IERC677Receiver(to).onTokenTransfer(sender, value, data);
         }
         return true;
-    }
-
-    function contractFallback(address sender, address to, uint value, bytes calldata data) internal virtual {
-        IERC677Receiver receiver = IERC677Receiver(to);
-        receiver.onTokenTransfer(sender, value, data);
     }
 
     function isContract(address addr) private view returns (bool hasCode) {
@@ -192,17 +232,23 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
         require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-        require(_vesting[sender] < block.timestamp);
+        
         require(_live != 0);
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        
+        if(_vesting[msg.sender].cliffAmount > 0) {
+            uint256 linearVesting = _vesting[msg.sender].vestingStartAmount/_vesting[msg.sender].vestingDuration*(block.timestamp - _live);
+            require(senderBalance - amount >= _vesting[msg.sender].cliffAmount + linearVesting);
+        }
+        
         unchecked {
             _balances[sender] = senderBalance - amount;
         }
         _balances[recipient] += amount;
         
+        emitTokens();
         emit Transfer(sender, recipient, amount);
     }
 
