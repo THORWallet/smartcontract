@@ -149,7 +149,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
     
     function emitTokens() internal virtual {
-        uint64 timeInM = uint64((block.timestamp - _live) / (60 * 24 * 30));
+        uint64 timeInM = uint64((block.timestamp - _live) / (60 * 60 * 24 * 30));
         if (timeInM <= _lastEmitAt) {
             return;
         }
