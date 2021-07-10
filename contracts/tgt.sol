@@ -32,7 +32,7 @@ interface IERC677Receiver {
   function onTokenTransfer(address sender, uint value, bytes calldata data) external;
 }
 
-contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
+contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     mapping(address => uint256) private _balances;
     mapping(address => Vesting) private _vesting;
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -48,22 +48,22 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     uint256 private _totalSupply;
     uint64 private _live = 0;
     address private _owner;
-    uint64 private _lastEmitAt;
-    uint8 private _curveSteep =  4;
-    uint8 private _curveEnd =  96; //8 years in month
-    
+    uint64 private _lastEmitMAt;
+    uint64 private _lastEmitYAt;
+    uint8[] private _curveHalvingYears = [3,3,3,2,2,2,2,2,1]; //1 year has 360 days -> 1 month = 30 days
+    uint96 private _curveSupply = INIT_SUPPLY;
+
     uint96 constant MAX_SUPPLY  = 1000000000 * (10**18); //1 billion
-    uint16 constant CURVE_TOP =  989;
+    uint96 constant INIT_SUPPLY =  460000000 * (10**18); //460 million
     uint64 constant MAX_INT = 2**64 - 1;
     
     constructor() EIP712(symbol(), "1") {
         _owner = msg.sender;
     }
     
-    function setCurve(uint8 curveSteep, uint8 curveEnd) public virtual {
+    function setCurve(uint8[] calldata curveHalvingYears) public virtual {
         require(_owner == msg.sender, "TGT: not the owner");
-        _curveSteep = curveSteep;
-        _curveEnd = curveEnd;
+        _curveHalvingYears = curveHalvingYears;
     }
     
     function transferOwner(address newOwner) public virtual {
@@ -79,7 +79,6 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         return "TGT";
     }
 
-   
     function decimals() public view virtual override returns (uint8) {
         return 18;
     }
@@ -157,44 +156,34 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     
     function emitTokens() internal virtual {
         uint64 timeInM = uint64((block.timestamp - _live) / (60 * 60 * 24 * 30));
-        if (timeInM <= _lastEmitAt) {
+        if (timeInM <= _lastEmitMAt) {
+            return;
+        }
+        uint64 timeInY = timeInM / 12;
+        if (timeInY >= _curveHalvingYears.length) {
+            _lastEmitMAt = MAX_INT;
             return;
         }
 
-        uint256 expectedSupplyNow;
-        uint256 expectedSupplyPre;
-        if (timeInM >= _curveEnd) {
-            expectedSupplyPre = CURVE_TOP * 1000000 * 10**18;
-            expectedSupplyNow = MAX_SUPPLY;
-            timeInM = MAX_INT;
-        } else {
-            expectedSupplyNow = emitCurve(timeInM) * 10**18;
-            expectedSupplyPre = emitCurve(_lastEmitAt) * 10**18;
+        if (timeInY > _lastEmitYAt) {
+            uint96 toBeMintedOld = MAX_SUPPLY - _curveSupply;
+            uint96 lastYearlyMint = toBeMintedOld / _curveHalvingYears[_lastEmitYAt];
+            _curveSupply += lastYearlyMint;
+            _lastEmitYAt = timeInY;
         }
-        
-        //towards the end the curve may go down, don't fail
-        if(expectedSupplyPre >= expectedSupplyNow) {
-            return;
-        }
-        uint256 additionalAmount = expectedSupplyNow - expectedSupplyPre;
-        _totalSupply += additionalAmount;
-        _balances[_owner] += additionalAmount;
-        _lastEmitAt = timeInM;
-    }
-    
-    //https://www.desmos.com/calculator/fmbbfvtwux
-    //(989 - (x/4-23)^2 * 1000000
-    //989 controls the total height
-    //4 - CURVE_STEEP - controls how steep the curve is
-    //23 shifts the curve 
-    //max will be reached in 92 month
-    function emitCurve(uint256 x) internal virtual returns (uint256) {
-        uint256 i = (x/_curveSteep - 23)**2;
-        return (CURVE_TOP - i) * 1000000; 
+
+        uint96 toBeMinted = MAX_SUPPLY - _curveSupply;
+        uint96 yearlyMint = toBeMinted / _curveHalvingYears[timeInY];
+        uint96 additionalAmountM = yearlyMint / 12;
+
+        _totalSupply += additionalAmountM;
+        _balances[_owner] += additionalAmountM;
+        _lastEmitMAt = timeInM;
     }
     
     function mintFinish() public virtual {
         require(msg.sender == _owner);
+        require(_totalSupply == INIT_SUPPLY);
         _live = uint64(block.timestamp);
     }
 
@@ -214,11 +203,7 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
     
     function transferAndCall(address to, uint value, bytes calldata data) public virtual override returns (bool success) {
-        transfer(to, value);
-        emit TransferWithData(msg.sender, to, value, data);
-        if (isContract(to)) {
-            IERC677Receiver(to).onTokenTransfer(msg.sender, value, data);
-        }
+        transferFromAndCall(msg.sender, to, value, data);
         return true;
     }
     
@@ -249,6 +234,9 @@ contract ERC20 is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
             uint256 linearVesting = _vesting[msg.sender].vestingStartAmount/_vesting[msg.sender].vestingDuration*(block.timestamp - _live);
             if(linearVesting<_vesting[msg.sender].vestingStartAmount) {
                 require(senderBalance - amount >= _vesting[msg.sender].vestingStartAmount - linearVesting);
+            } else {
+                //no more vesting required
+                _vesting[msg.sender].vestingDuration = 0;
             }
         }
         
