@@ -133,19 +133,18 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
     
     function mint(address[] calldata account, uint96[] calldata amount, uint96[] calldata cliffAmounts, 
-                  uint96[] calldata vestingTotalAmounts, uint64[] calldata vestingDurations) public virtual {
-        require(msg.sender == _owner);
-        require(account.length == amount.length);
-        require(amount.length == cliffAmounts.length);
-        require(cliffAmounts.length == vestingTotalAmounts.length);
-        require(vestingTotalAmounts.length == vestingDurations.length);
-        require(_live == 0);
+                  uint64[] calldata vestingDurations) public virtual {
+        require(msg.sender == _owner, "TGT: not the owner");
+        require(account.length == amount.length, "TGT: accounts and amounts length must match");
+        require(amount.length == cliffAmounts.length, "TGT: amounts and cliffAmounts length must match");
+        require(cliffAmounts.length == vestingDurations.length, "TGT: cliffAmounts and vestingDurations length must match");
+        require(_live == 0, "TGT: contract not live yet");
         
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
 
             if(cliffAmounts[i] != 0) {
-                _vesting[account[i]] = Vesting(vestingTotalAmounts[i] - cliffAmounts[i], vestingDurations[i]);
+                _vesting[account[i]] = Vesting(amount[i] - cliffAmounts[i], vestingDurations[i]);
             }
 
             _totalSupply += amount[i];
@@ -182,8 +181,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
     
     function mintFinish() public virtual {
-        require(msg.sender == _owner);
-        require(_totalSupply == INIT_SUPPLY);
+        require(msg.sender == _owner, "TGT: not the owner");
+        require(_totalSupply == INIT_SUPPLY, "TGT: supply mismatch");
         _live = uint64(block.timestamp);
     }
 
@@ -225,7 +224,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
         require(sender != address(0), "ERC20: transfer from the zero address");
         
-        require(_live != 0);
+        require(_live != 0, "TGT: contract not live yet");
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
@@ -233,7 +232,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         if(_vesting[msg.sender].vestingDuration > 0) {
             uint256 linearVesting = _vesting[msg.sender].vestingStartAmount/_vesting[msg.sender].vestingDuration*(block.timestamp - _live);
             if(linearVesting<_vesting[msg.sender].vestingStartAmount) {
-                require(senderBalance - amount >= _vesting[msg.sender].vestingStartAmount - linearVesting);
+                require(senderBalance - amount >= _vesting[msg.sender].vestingStartAmount - linearVesting, "TGT: cannot transfer vested funds");
             } else {
                 //no more vesting required
                 _vesting[msg.sender].vestingDuration = 0;
@@ -252,7 +251,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     function _approve(address owner, address spender, uint256 amount) internal virtual {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
-        require(_live != 0);
+        require(_live != 0, "TGT: contract not live yet");
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
