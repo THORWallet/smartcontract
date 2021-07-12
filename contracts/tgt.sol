@@ -33,21 +33,17 @@ interface IERC677Receiver {
 }
 
 contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
+
+    event Minted(address indexed operator, address indexed to, uint256 amount, bytes data, bytes operatorData);
+    event Burned(address indexed operator, address indexed from, uint256 amount, bytes data, bytes operatorData);
+
     mapping(address => uint256) private _balances;
-    mapping(address => Vesting) private _vesting;
     mapping(address => mapping(address => uint256)) private _allowances;
-    
-    struct Vesting {
-        //96bit are enough: max value is 1000000000000000000000000000
-        //96bit are:                    79228162514264337593543950336
-        uint96 vestingStartAmount;
-        //64bit for timestamp in seconds lasts 584 billion years
-        uint64 vestingDuration;
-    }
 
     uint256 private _totalSupply;
     uint64 private _live = 0;
     address private _owner;
+    address private _reserve;
     uint64 private _lastEmitMAt;
     uint64 private _lastEmitYAt;
     uint8[] private _curveHalvingYears = [3,3,3,2,2,2,2,2,1]; //1 year has 360 days -> 1 month = 30 days
@@ -56,19 +52,37 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     uint96 constant MAX_SUPPLY  = 1000000000 * (10**18); //1 billion
     uint96 constant INIT_SUPPLY =  460000000 * (10**18); //460 million
     uint64 constant MAX_INT = 2**64 - 1;
-    
+    uint64 constant MONTH = 60 * 60 * 24 * 30;
+
     constructor() EIP712(symbol(), "1") {
         _owner = msg.sender;
+        _reserve = msg.sender;
     }
-    
+
     function setCurve(uint8[] calldata curveHalvingYears) public virtual {
         require(_owner == msg.sender, "TGT: not the owner");
+
         _curveHalvingYears = curveHalvingYears;
     }
-    
+
     function transferOwner(address newOwner) public virtual {
         require(_owner == msg.sender, "TGT: not the owner");
+        require(newOwner != address(0), "TGT: transfer owner the zero address");
+        require(newOwner != address(this), "TGT: transfer owner to this contract");
+
         _owner = newOwner;
+    }
+
+    function setReserve(address reserve) public virtual {
+        require(_owner == msg.sender, "TGT: not the owner");
+        require(reserve != address(0), "TGT: set reserve to zero address");
+        require(reserve != address(this), "TGT: set reserve to this contract");
+
+        _reserve = reserve;
+    }
+
+    function getLive() public view returns (uint64) {
+        return _live;
     }
 
     function name() public view virtual override returns (string memory) {
@@ -93,6 +107,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(recipient != address(this), "ERC20: transfer to this contract");
+
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -108,6 +124,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
         require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(recipient != address(this), "ERC20: transfer to this contract");
+
         _transfer(sender, recipient, amount);
 
         uint256 currentAllowance = _allowances[sender][msg.sender];
@@ -118,43 +136,29 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
         return true;
     }
-    
-    function vesting(address sender, uint64 timestamp) public view returns (uint256) {
-        uint256 linearVesting = _vesting[sender].vestingStartAmount/_vesting[sender].vestingDuration*(timestamp - _live);
-        if(linearVesting<_vesting[sender].vestingStartAmount) {
-            return _vesting[sender].vestingStartAmount - linearVesting;
-        } 
-        return 0;
-    }
-    
+
     function burn(uint256 amount) public virtual {
         _transfer(msg.sender, address(0), amount);
         _totalSupply -= amount;
     }
-    
-    function mint(address[] calldata account, uint96[] calldata amount, uint96[] calldata cliffAmounts, 
-                  uint64[] calldata vestingDurations) public virtual {
+
+    function mint(address[] calldata account, uint96[] calldata amount) public virtual {
         require(msg.sender == _owner, "TGT: not the owner");
         require(account.length == amount.length, "TGT: accounts and amounts length must match");
-        require(amount.length == cliffAmounts.length, "TGT: amounts and cliffAmounts length must match");
-        require(cliffAmounts.length == vestingDurations.length, "TGT: cliffAmounts and vestingDurations length must match");
-        require(_live == 0, "TGT: contract not live yet");
-        
+        require(_live == 0, "TGT: contract already live");
+
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
-
-            if(cliffAmounts[i] != 0) {
-                _vesting[account[i]] = Vesting(amount[i] - cliffAmounts[i], vestingDurations[i]);
-            }
+            require(account[i] != address(this), "TGT: sender is this contract");
 
             _totalSupply += amount[i];
             _balances[account[i]] += amount[i];
             emit Transfer(address(0), account[i], amount[i]);
         }
     }
-    
+
     function emitTokens() internal virtual {
-        uint64 timeInM = uint64((block.timestamp - _live) / (60 * 60 * 24 * 30));
+        uint64 timeInM = uint64((block.timestamp - _live) / MONTH);
         if (timeInM <= _lastEmitMAt) {
             return;
         }
@@ -176,13 +180,22 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         uint96 additionalAmountM = yearlyMint / 12;
 
         _totalSupply += additionalAmountM;
-        _balances[_owner] += additionalAmountM;
+        _balances[_reserve] += additionalAmountM;
         _lastEmitMAt = timeInM;
+
+        //do we need ERC777ish functionality to check if reserve can be called?
+        //if (isContract(_reserve) && **IS-RECEIVER(_reserve)**) {
+        //    IERC677Receiver(_reserve).onTokenTransfer(_reserve, additionalAmountM, "");
+        //}
+
+        emit Transfer(address(0), _reserve, additionalAmountM);
     }
-    
+
     function mintFinish() public virtual {
         require(msg.sender == _owner, "TGT: not the owner");
         require(_totalSupply == INIT_SUPPLY, "TGT: supply mismatch");
+        require(_live == 0, "TGT: contract not yet live");
+
         _live = uint64(block.timestamp);
     }
 
@@ -194,18 +207,19 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
         uint256 currentAllowance = _allowances[msg.sender][spender];
         require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+
         unchecked {
             _approve(msg.sender, spender, currentAllowance - subtractedValue);
         }
 
         return true;
     }
-    
+
     function transferAndCall(address to, uint value, bytes calldata data) public virtual override returns (bool success) {
         transferFromAndCall(msg.sender, to, value, data);
         return true;
     }
-    
+
     function transferFromAndCall(address sender, address to, uint value, bytes calldata data) public virtual override returns (bool success) {
         transferFrom(sender, to, value);
         emit TransferWithData(sender, to, value, data);
@@ -222,46 +236,40 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
 
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        //the recipient is checked by the callee, as this is also used for token burn, which
+        //goes to address 0
         require(sender != address(0), "ERC20: transfer from the zero address");
-        
+        require(sender != address(this), "TGT: sender is this contract");
         require(_live != 0, "TGT: contract not live yet");
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
-        
-        if(_vesting[msg.sender].vestingDuration > 0) {
-            uint256 linearVesting = _vesting[msg.sender].vestingStartAmount/_vesting[msg.sender].vestingDuration*(block.timestamp - _live);
-            if(linearVesting<_vesting[msg.sender].vestingStartAmount) {
-                require(senderBalance - amount >= _vesting[msg.sender].vestingStartAmount - linearVesting, "TGT: cannot transfer vested funds");
-            } else {
-                //no more vesting required
-                _vesting[msg.sender].vestingDuration = 0;
-            }
-        }
-        
+
         unchecked {
             _balances[sender] = senderBalance - amount;
         }
         _balances[recipient] += amount;
-        
+
         emitTokens();
         emit Transfer(sender, recipient, amount);
     }
 
     function _approve(address owner, address spender, uint256 amount) internal virtual {
         require(owner != address(0), "ERC20: approve from the zero address");
+        require(owner != address(this), "TGT: owner is this contract");
         require(spender != address(0), "ERC20: approve to the zero address");
+        require(spender != address(this), "TGT: spender is this contract");
         require(_live != 0, "TGT: contract not live yet");
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
     }
-    
+
     // ************ ERC777 ********************
     using Counters for Counters.Counter;
     mapping (address => Counters.Counter) private _nonces;
     bytes32 private immutable _PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-    
+
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) public virtual override {
         require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
         bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));

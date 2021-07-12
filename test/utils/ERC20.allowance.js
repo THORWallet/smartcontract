@@ -31,8 +31,6 @@ function allowanceERC20(errorPrefix, initialSupply, initialHolder, recipient, an
 
             describe('when the spender had an approved amount', function () {
                 const approvedAmount = amount;
-                console.log(spender);
-                console.log(approvedAmount);
 
                 beforeEach(async function () {
                     await token.connect(initialHolder).approve(spender, approvedAmount);
@@ -86,8 +84,6 @@ function allowanceERC20(errorPrefix, initialSupply, initialHolder, recipient, an
 
             describe('when the sender has enough balance', function () {
                 it('emits an approval event', async function () {
-                    console.log(spender);
-                    console.log(amount.toString());
                     expect(await token.connect(initialHolder).increaseAllowance(spender, amount.toString()))
                         .to.emit(token, 'Approval').withArgs(initialHolder.address, spender, amount.toString());
                 });

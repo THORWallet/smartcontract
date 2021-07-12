@@ -36,9 +36,7 @@ describe("TGT", function () {
             const [initialHolder, recipient, anotherAccount] = this.accounts;
             let acc = new Array(initialHolder.address);
             let amount = new Array(initialSupply.toString());
-            let cliff = new Array(new BN("0").toString());
-            let vesting = new Array(new BN("0").toString());
-            await this.token.mint(acc, amount, cliff, vesting);
+            await this.token.mint(acc, amount);
             await this.token.mintFinish();
             shouldBehaveLikeERC20('ERC20', initialSupply, initialHolder, recipient, anotherAccount, this.token);
         });
@@ -49,9 +47,7 @@ describe("TGT", function () {
             const [initialHolder, recipient, anotherAccount] = this.accounts;
             let acc = new Array(initialHolder.address);
             let amount = new Array(initialSupply.toString());
-            let cliff = new Array(new BN("0").toString());
-            let vesting = new Array(new BN("0").toString());
-            await this.token.mint(acc, amount, cliff, vesting);
+            await this.token.mint(acc, amount);
             await this.token.mintFinish();
             allowanceERC20('ERC20', initialSupply, initialHolder, recipient, anotherAccount, this.token);
         });
@@ -61,9 +57,7 @@ describe("TGT", function () {
         const [initialHolder] = this.accounts;
         let acc = new Array(initialHolder.address);
         let amount = new Array(new BN("100").toString());
-        let cliff = new Array(new BN("0").toString());
-        let vesting = new Array(new BN("0").toString());
-        await this.token.mint(acc, amount, cliff, vesting);
+        await this.token.mint(acc, amount);
         await expectRevert.unspecified(this.token.mintFinish(), "TGT: supply mismatch");
     });
 });

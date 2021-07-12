@@ -16,8 +16,8 @@ The contract is an ERC20 contract with the following additions:
 ## Token Emit
 
 The token emitting function can be found in [supply-curve.ods](supply-curve.ods). It first emits fast, then get slower
-until it reaches the max of 1b tokens. The emitting is done every month within an ERC20 transfer. Every year the 
-amount of tokens that can be emitted is lowered according to the emitting function.
+until it reaches the max of 1b tokens. The emitting is done every month within an ERC20 transfer. Every year the amount
+of tokens that can be emitted is lowered according to the emitting function.
 
 ## Facts
 
