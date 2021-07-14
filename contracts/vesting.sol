@@ -8,7 +8,7 @@ interface ITGTERC20Metadata is IERC20 {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
     function decimals() external view returns (uint8);
-    function getLive() external view returns (uint64);
+    function live() external view returns (uint64);
 }
 
 interface IERC677Receiver {
@@ -18,6 +18,7 @@ interface IERC677Receiver {
 contract Vesting {
     ITGTERC20Metadata private _tgtContract;
     address private _owner;
+    uint256 private _vestedBalance;
 
     mapping(address => VestingParams) private _vesting;
 
@@ -44,42 +45,54 @@ contract Vesting {
         require(accounts.length == amounts.length, "Vesting: accounts and amounts length must match");
         require(amounts.length == cliffAmounts.length, "Vesting: amounts and cliffAmounts length must match");
         require(cliffAmounts.length == vestingDurations.length, "Vesting: cliffAmounts and vestingDurations length must match");
-        require(_tgtContract.getLive() == 0, "Vesting: contract already live");
 
         for(uint256 i=0;i<accounts.length;i++) {
-            _vesting[accounts[i]] = VestingParams(amounts[i] - cliffAmounts[i], vestingDurations[i], 0, cliffAmounts[i]);
+            _vestedBalance += amounts[i];
+            //only vest those accounts that are not yet vested. We dont want to merge vestings
+            if(_vesting[accounts[i]].vestingAmount == 0) {
+                _vesting[accounts[i]] = VestingParams(amounts[i] - cliffAmounts[i], vestingDurations[i], 0, cliffAmounts[i]);
+            }
         }
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
-        if(block.timestamp < _tgtContract.getLive()) {
+        if(block.timestamp < _tgtContract.live()) {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
         if(v.vestingDuration == 0) { //div by 0
             return 0;
         }
-        if(_tgtContract.getLive() == 0) {
+        if(_tgtContract.live() == 0) {
             //not live yet, only report the cliff
             return v.cliff;
         }
-        uint256 timeUnlocked = v.vestingAmount / v.vestingDuration * (block.timestamp - _tgtContract.getLive());
+        uint256 timeUnlocked = v.vestingAmount / v.vestingDuration * (block.timestamp - _tgtContract.live());
         return (v.cliff + timeUnlocked) - v.vestingClaimed;
     }
 
-    function balanceOf() public view virtual returns (uint256) {
-        return _tgtContract.balanceOf(address(this));
+    function vestedBalance() public view virtual returns (uint256) {
+        return _vestedBalance;
     }
 
     function claim(address to, uint96 amount) public virtual {
-        require(block.timestamp >= _tgtContract.getLive(), 'Vesting: timestamp in the past?');
-        require(_tgtContract.getLive() != 0, "Vesting: contract not live yet");
+        require(block.timestamp >= _tgtContract.live(), 'Vesting: timestamp in the past?');
+        require(_tgtContract.live() != 0, "Vesting: contract not live yet");
         require(to != address(0), "Vesting: transfer from the zero address");
         require(to != address(this), "Vesting: sender is this contract");
         require(to != address(_tgtContract), "Vesting: sender is _tgtContract contract");
 
         VestingParams storage v = _vesting[msg.sender];
-        uint256 timeUnlocked = v.vestingAmount / v.vestingDuration * (block.timestamp - _tgtContract.getLive());
+        uint256 currentDuration = block.timestamp - _tgtContract.live();
+
+        uint256 timeUnlocked = 0;
+        if(v.vestingDuration < currentDuration) {
+            //we can give all of it, vesting time passed, otherwise we see a div by zero
+            timeUnlocked = v.vestingAmount;
+        } else {
+            uint256 vestingFraction = v.vestingDuration / currentDuration;
+            timeUnlocked = v.vestingAmount / vestingFraction;
+        }
 
         require(amount <= ((v.cliff + timeUnlocked) - v.vestingClaimed), "TGT: cannot transfer vested funds");
 

@@ -41,6 +41,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private _totalSupply;
+    uint96 private _totalEmitted;
     uint64 private _live = 0;
     address private _owner;
     address private _reserve;
@@ -52,7 +53,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     uint96 constant MAX_SUPPLY  = 1000000000 * (10**18); //1 billion
     uint96 constant INIT_SUPPLY =  460000000 * (10**18); //460 million
     uint64 constant MAX_INT = 2**64 - 1;
-    uint64 constant MONTH = 60 * 60 * 24 * 30;
+    uint64 constant MONTH_IN_S = 60 * 60 * 24 * 30;
 
     constructor() EIP712(symbol(), "1") {
         _owner = msg.sender;
@@ -81,7 +82,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         _reserve = reserve;
     }
 
-    function getLive() public view returns (uint64) {
+    function live() public view returns (uint64) {
         return _live;
     }
 
@@ -157,14 +158,26 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         }
     }
 
-    function emitTokens() internal virtual {
-        uint64 timeInM = uint64((block.timestamp - _live) / MONTH);
+    function emitTokens() public virtual {
+        require(_live != 0, "TGT: contract not live yet");
+        emitTokensInternal();
+    }
+
+    //we expect that we have every month a transfer, if we don't we will trigger one,
+    //to emit tokens
+    function emitTokensInternal() internal virtual {
+        uint64 timeInM = uint64((block.timestamp - _live) / MONTH_IN_S);
         if (timeInM <= _lastEmitMAt) {
             return;
         }
         uint64 timeInY = timeInM / 12;
         if (timeInY >= _curveHalvingYears.length) {
             _lastEmitMAt = MAX_INT;
+            //now we mint all the tokens, also if we forgot a monthly emit
+            uint96 toBeMintedFinal = (MAX_SUPPLY - INIT_SUPPLY) - _totalEmitted;
+            _totalSupply += toBeMintedFinal;
+            _balances[_reserve] += toBeMintedFinal;
+            emit Transfer(address(0), _reserve, toBeMintedFinal);
             return;
         }
 
@@ -180,6 +193,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         uint96 additionalAmountM = yearlyMint / 12;
 
         _totalSupply += additionalAmountM;
+        _totalEmitted += additionalAmountM;
         _balances[_reserve] += additionalAmountM;
         _lastEmitMAt = timeInM;
 
@@ -250,7 +264,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         }
         _balances[recipient] += amount;
 
-        emitTokens();
+        emitTokensInternal();
         emit Transfer(sender, recipient, amount);
     }
 
@@ -262,6 +276,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         require(_live != 0, "TGT: contract not live yet");
 
         _allowances[owner][spender] = amount;
+
+        emitTokensInternal();
         emit Approval(owner, spender, amount);
     }
 
