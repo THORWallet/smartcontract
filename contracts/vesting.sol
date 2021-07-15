@@ -56,7 +56,7 @@ contract Vesting {
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
-        if(block.timestamp < _tgtContract.live()) {
+        if(block.timestamp <= _tgtContract.live()) {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
@@ -87,7 +87,7 @@ contract Vesting {
     }
 
     function claim(address to, uint96 amount) public virtual {
-        require(block.timestamp >= _tgtContract.live(), 'Vesting: timestamp in the past?');
+        require(block.timestamp > _tgtContract.live(), 'Vesting: timestamp now or in the past?');
         require(_tgtContract.live() != 0, "Vesting: contract not live yet");
         require(to != address(0), "Vesting: transfer from the zero address");
         require(to != address(this), "Vesting: sender is this contract");
