@@ -60,19 +60,27 @@ contract Vesting {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
-        if(v.vestingDuration == 0) { //div by 0
-            return 0;
+        
+        uint256 currentDuration = block.timestamp - _tgtContract.live();
+
+        uint256 timeUnlocked = 0;
+        if(v.vestingDuration < currentDuration) {
+            //we can give all of it, vesting time passed, otherwise we see a div by zero
+            timeUnlocked = v.vestingAmount;
+        } else {
+            uint256 vestingFraction = v.vestingDuration / currentDuration;
+            timeUnlocked = v.vestingAmount / vestingFraction;
         }
-        if(_tgtContract.live() == 0) {
-            //not live yet, only report the cliff
-            return v.cliff;
-        }
-        uint256 timeUnlocked = v.vestingAmount / v.vestingDuration * (block.timestamp - _tgtContract.live());
         return (v.cliff + timeUnlocked) - v.vestingClaimed;
     }
 
     function vestedBalance() public view virtual returns (uint256) {
         return _vestedBalance;
+    }
+
+    function vestedBalance(address vested) public view virtual returns (uint256) {
+        VestingParams memory v = _vesting[vested];
+        return v.vestingAmount - v.vestingClaimed;
     }
 
     function claim(address to, uint96 amount) public virtual {
@@ -93,8 +101,9 @@ contract Vesting {
             uint256 vestingFraction = v.vestingDuration / currentDuration;
             timeUnlocked = v.vestingAmount / vestingFraction;
         }
+        uint256 claimableAmount = (v.cliff + timeUnlocked) - v.vestingClaimed;
 
-        require(amount <= ((v.cliff + timeUnlocked) - v.vestingClaimed), "TGT: cannot transfer vested funds");
+        require(amount <= claimableAmount, "TGT: cannot transfer vested funds");
 
         v.vestingClaimed += amount;
         _tgtContract.transfer(to, amount);
