@@ -99,6 +99,9 @@ describe("TGT", function () {
         let duration2 = new Array(60*60*24*30*12, 60*60*24*30);
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+3]);
         await this.vesting.vest(acc2, amount2, cliff2, duration2);
+
+        expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("300");
+
         //can claim
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+4]);
         //100 + linear -> way too small, stay at 100
@@ -109,6 +112,9 @@ describe("TGT", function () {
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+6]);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "1");
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+7]);
+
+        expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("299");
+
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "100"));
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+8]);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "99");
@@ -119,8 +125,11 @@ describe("TGT", function () {
         //one month later, we shoud have 16 tokens more
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)]);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "17"));
+        // 299 - 99 but not - 17
+        expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("200");
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+1+(60*60*24*30)]);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "16");
+        expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("184");
         //wait till end, claim all
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*12)]);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));

@@ -81,9 +81,9 @@ contract Vesting {
         return _vestedBalance;
     }
 
-    function vestedBalance(address vested) public view virtual returns (uint256) {
+    function vestedBalanceOf(address vested) public view virtual returns (uint256) {
         VestingParams memory v = _vesting[vested];
-        return v.vestingAmount - v.vestingClaimed;
+        return v.cliff + v.vestingAmount - v.vestingClaimed;
     }
 
     function claim(address to, uint96 amount) public virtual {
