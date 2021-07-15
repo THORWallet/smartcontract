@@ -56,33 +56,14 @@ contract Vesting {
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
-        if(block.timestamp < _tgtContract.live()) {
+        if(block.timestamp <= _tgtContract.live()) {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
-        if(v.vestingDuration == 0) { //div by 0
-            return 0;
-        }
-        if(_tgtContract.live() == 0) {
-            //not live yet, only report the cliff
-            return v.cliff;
-        }
-        uint256 timeUnlocked = v.vestingAmount / v.vestingDuration * (block.timestamp - _tgtContract.live());
-        return (v.cliff + timeUnlocked) - v.vestingClaimed;
+        return claimableAmount(v);
     }
-
-    function vestedBalance() public view virtual returns (uint256) {
-        return _vestedBalance;
-    }
-
-    function claim(address to, uint96 amount) public virtual {
-        require(block.timestamp >= _tgtContract.live(), 'Vesting: timestamp in the past?');
-        require(_tgtContract.live() != 0, "Vesting: contract not live yet");
-        require(to != address(0), "Vesting: transfer from the zero address");
-        require(to != address(this), "Vesting: sender is this contract");
-        require(to != address(_tgtContract), "Vesting: sender is _tgtContract contract");
-
-        VestingParams storage v = _vesting[msg.sender];
+    
+    function claimableAmount(VestingParams memory v) internal view virtual returns (uint256) {
         uint256 currentDuration = block.timestamp - _tgtContract.live();
 
         uint256 timeUnlocked = 0;
@@ -93,8 +74,28 @@ contract Vesting {
             uint256 vestingFraction = v.vestingDuration / currentDuration;
             timeUnlocked = v.vestingAmount / vestingFraction;
         }
+        return (v.cliff + timeUnlocked) - v.vestingClaimed;
+    }
 
-        require(amount <= ((v.cliff + timeUnlocked) - v.vestingClaimed), "TGT: cannot transfer vested funds");
+    function vestedBalance() public view virtual returns (uint256) {
+        return _vestedBalance;
+    }
+
+    function vestedBalanceOf(address vested) public view virtual returns (uint256) {
+        VestingParams memory v = _vesting[vested];
+        return v.cliff + v.vestingAmount - v.vestingClaimed;
+    }
+
+    function claim(address to, uint96 amount) public virtual {
+        require(block.timestamp > _tgtContract.live(), 'Vesting: timestamp now or in the past?');
+        require(_tgtContract.live() != 0, "Vesting: contract not live yet");
+        require(to != address(0), "Vesting: transfer from the zero address");
+        require(to != address(this), "Vesting: sender is this contract");
+        require(to != address(_tgtContract), "Vesting: sender is _tgtContract contract");
+
+        VestingParams storage v = _vesting[msg.sender];
+
+        require(amount <= claimableAmount(v), "TGT: cannot transfer vested funds");
 
         v.vestingClaimed += amount;
         _tgtContract.transfer(to, amount);
