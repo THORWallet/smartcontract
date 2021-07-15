@@ -135,6 +135,9 @@ describe("TGT", function () {
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+1+(60*60*24*30*12)]);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "184");
+
+        expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("0");
+        await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "1"));
     });
 
     //split it
