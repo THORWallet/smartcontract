@@ -60,7 +60,10 @@ contract Vesting {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
-        
+        return claimableAmount(v);
+    }
+    
+    function claimableAmount(VestingParams memory v) internal view virtual returns (uint256) {
         uint256 currentDuration = block.timestamp - _tgtContract.live();
 
         uint256 timeUnlocked = 0;
@@ -91,19 +94,8 @@ contract Vesting {
         require(to != address(_tgtContract), "Vesting: sender is _tgtContract contract");
 
         VestingParams storage v = _vesting[msg.sender];
-        uint256 currentDuration = block.timestamp - _tgtContract.live();
 
-        uint256 timeUnlocked = 0;
-        if(v.vestingDuration < currentDuration) {
-            //we can give all of it, vesting time passed, otherwise we see a div by zero
-            timeUnlocked = v.vestingAmount;
-        } else {
-            uint256 vestingFraction = v.vestingDuration / currentDuration;
-            timeUnlocked = v.vestingAmount / vestingFraction;
-        }
-        uint256 claimableAmount = (v.cliff + timeUnlocked) - v.vestingClaimed;
-
-        require(amount <= claimableAmount, "TGT: cannot transfer vested funds");
+        require(amount <= claimableAmount(v), "TGT: cannot transfer vested funds");
 
         v.vestingClaimed += amount;
         _tgtContract.transfer(to, amount);
