@@ -208,7 +208,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     function mintFinish() public virtual {
         require(msg.sender == _owner, "TGT: not the owner");
         require(_totalSupply == INIT_SUPPLY, "TGT: supply mismatch");
-        require(_live == 0, "TGT: contract not yet live");
+        require(_live == 0, "TGT: contract is live already");
 
         _live = uint64(block.timestamp);
     }
