@@ -142,7 +142,7 @@ describe("TGT", function () {
     });
 
     //split it
-    it('test emit', async function () {
+    it('test emit with forgetting a month', async function () {
         const [initialHolder, secondAccount, thirdAccount, fourthAccount, fifthAccount] = this.accounts;
         let acc = new Array(secondAccount.address);
         let amount = new Array(initialSupply.toString());
@@ -153,135 +153,155 @@ describe("TGT", function () {
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+1]);
         expect(await this.token.totalSupply()).to.equal(initialSupply.toString());
 
-        //after 1 Month, should be 15m
+        // trying to emit 1 second later, should not emit
+        await this.token.emitTokens();
+        expect(await this.token.totalSupply()).to.equal(initialSupply.toString());
+
+        // after 1 Month, should emit 15m and emit Transfer event
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)]);
-        await expect(this.token.emitTokens())
+        expect(await this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
+            "0x0000000000000000000000000000000000000000",
             initialHolder.address,
             "15000000000000000000000000");
-
-
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)+1]);
-        //this does not emit new tokens
-        await this.token.emitTokens();
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)+2]);
         const b15m = new BN("15000000000000000000000000");
         expect(await this.token.totalSupply()).to.equal(initialSupply.add(b15m).toString());
 
-        //now we forget on month and go to month 3 to 12, so we miss minting 15m
-        for(let i=2;i<12;i++) {
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)+1]);
+        // this should not emit new tokens, after 1 month and 1 second
+        await this.token.emitTokens();
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)+2]);
+        expect(await this.token.totalSupply()).to.equal(initialSupply.add(b15m).toString());
+
+        //now we forget to emit in february, but do it from march to december (jan already emitted before)
+        for(let i=3;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*i)]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b15m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b15m.toString());
         }
-        //for this year 180m, we missed 15m
+
+        // after this year we expect 180m minus 15m
         const b180m = new BN("180000000000000000000000000");
-        expect(await this.token.totalSupply()).to.equal(initialSupply.add(b180m.sub(b15m)).toString());
+        expect(await this.token.totalSupply()).to.equal(initialSupply.add(b180m)
+            // since we forgot a month
+            .sub(b15m)
+            .toString());
 
         const b10m = new BN("10000000000000000000000000");
         //next year 2
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
+            // e.g. end of january 12 + 1
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(12+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b10m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b10m.toString());
         }
 
         const b6m = new BN("6666666666666666666666666");
         //next year 3
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(24+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b6m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b6m.toString());
         }
 
         //const b6m = new BN("6666666666666666666666666");
         //next year 4
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(36+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b6m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b6m.toString());
         }
 
         const b3m = new BN("3333333333333333333333333");
         //next year 5
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(48+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b3m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b3m.toString());
         }
 
         const b1p6m = new BN("1666666666666666666666666");
         //next year 5
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(60+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b1p6m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b1p6m.toString());
         }
 
         const b8p3m = new BN("833333333333333333333333");
         //next year 6
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(72+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b8p3m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b8p3m.toString());
         }
 
         const b4p6m = new BN("416666666666666666666666");
         //next year 7
-        for(let i=0;i<12;i++) {
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(84+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b4p6m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b4p6m.toString());
         }
 
-        //const b4p6m = new BN("416666666666666666666666");
-        //next year 8
-        for(let i=0;i<12;i++) {
+        // const b4p6m = new BN("416666666666666666666666");
+        // next year 8
+        for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(96+i))]);
             await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
-                "0x0000000000000000000000000000000000000000",
-                initialHolder.address,
-                b4p6m.toString());
+                    "0x0000000000000000000000000000000000000000",
+                    initialHolder.address,
+                    b4p6m.toString());
         }
 
-        const b15pm = new BN("15000000000000000000000048"); //48 due to rounding
-        //next year 9+
-        //mint the last tokens we forget during monthl minitng
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(109))]);
+        // 48 due to rounding + 15m since we forgot a month in the first year
+        expect(await this.token.totalSupply()).to.equal(maxSupply.sub(new BN("48")).sub(b15m).toString());
+
+        // next year 9+
+        // mint the last tokens which are left
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(108+1))]);
         await expect(this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
-            "0x0000000000000000000000000000000000000000",
-            initialHolder.address,
-            b15pm.toString());
+                "0x0000000000000000000000000000000000000000",
+                initialHolder.address,
+                new BN("48")
+                    // since we forgot a month in the first year
+                    .add(b15m)
+                    .toString());
 
-        //check total supply
+        // check total supply, should be at 1bio
         const b1b = new BN("1000000000000000000000000000");
+        expect(await this.token.totalSupply()).to.equal(b1b.toString());
+
+        // check if after one year something is emitted, should not be the case
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(120+1))]);
+        await expect(this.token.emitTokens())
+            .to.not.emit(this.token, 'Transfer');
         expect(await this.token.totalSupply()).to.equal(b1b.toString());
     });
 
