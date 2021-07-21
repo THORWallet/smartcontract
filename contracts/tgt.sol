@@ -131,9 +131,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
         uint256 currentAllowance = _allowances[sender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-        unchecked {
-            _approve(sender, msg.sender, currentAllowance - amount);
-        }
+
+        _approve(sender, msg.sender, currentAllowance - amount);
 
         return true;
     }
@@ -222,9 +221,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         uint256 currentAllowance = _allowances[msg.sender][spender];
         require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
 
-        unchecked {
-            _approve(msg.sender, spender, currentAllowance - subtractedValue);
-        }
+        _approve(msg.sender, spender, currentAllowance - subtractedValue);
 
         return true;
     }
@@ -259,9 +256,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
 
-        unchecked {
-            _balances[sender] = senderBalance - amount;
-        }
+        _balances[sender] = senderBalance - amount;
         _balances[recipient] += amount;
 
         emitTokensInternal();
