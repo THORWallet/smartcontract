@@ -434,5 +434,10 @@ describe("TGT", function () {
         //check total supply
         const b1b = new BN("1000000000000000000000000000");
         expect(await this.token.totalSupply()).to.equal(b1b.toString());
+
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(108+2))]);
+        await expect(this.token.emitTokens())
+            .to.not.emit(this.token, 'Transfer');
+        expect(await this.token.totalSupply()).to.equal(b1b.toString());
     });
 });
