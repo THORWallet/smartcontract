@@ -155,7 +155,7 @@ describe("TGT", function () {
 
         //after 1 Month, should be 15m
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30)]);
-        expect(await this.token.emitTokens())
+        await expect(this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
             initialHolder.address,
@@ -172,7 +172,7 @@ describe("TGT", function () {
         //now we forget on month and go to month 3 to 12, so we miss minting 15m
         for(let i=2;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*i)]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -186,7 +186,7 @@ describe("TGT", function () {
         //next year 2
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(12+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -197,7 +197,7 @@ describe("TGT", function () {
         //next year 3
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(24+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -208,7 +208,7 @@ describe("TGT", function () {
         //next year 4
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(36+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -219,7 +219,7 @@ describe("TGT", function () {
         //next year 5
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(48+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -230,7 +230,7 @@ describe("TGT", function () {
         //next year 5
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(60+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -241,7 +241,7 @@ describe("TGT", function () {
         //next year 6
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(72+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -252,7 +252,7 @@ describe("TGT", function () {
         //next year 7
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(84+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -263,7 +263,7 @@ describe("TGT", function () {
         //next year 8
         for(let i=0;i<12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(96+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -274,7 +274,7 @@ describe("TGT", function () {
         //next year 9+
         //mint the last tokens we forget during monthl minitng
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(109))]);
-        expect(await this.token.emitTokens())
+        await expect(this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
             "0x0000000000000000000000000000000000000000",
             initialHolder.address,
@@ -319,7 +319,7 @@ describe("TGT", function () {
         //now we emit for the next 11 month (end of feb to end of dec, jan already emitted before)
         for(let i=2;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*i)]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -335,7 +335,7 @@ describe("TGT", function () {
         for(let i=1;i<=12;i++) {
             // e.g. end of january 12 + 1
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(12+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -346,7 +346,7 @@ describe("TGT", function () {
         //next year 3
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(24+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -357,7 +357,7 @@ describe("TGT", function () {
         //next year 4
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(36+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -368,7 +368,7 @@ describe("TGT", function () {
         //next year 5
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(48+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -379,7 +379,7 @@ describe("TGT", function () {
         //next year 5
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(60+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -390,7 +390,7 @@ describe("TGT", function () {
         //next year 6
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(72+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -401,7 +401,7 @@ describe("TGT", function () {
         //next year 7
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(84+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -412,7 +412,7 @@ describe("TGT", function () {
         // next year 8
         for(let i=1;i<=12;i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(96+i))]);
-            expect(await this.token.emitTokens())
+            await expect(this.token.emitTokens())
                 .to.emit(this.token, 'Transfer').withArgs(
                 "0x0000000000000000000000000000000000000000",
                 initialHolder.address,
@@ -425,7 +425,7 @@ describe("TGT", function () {
         // next year 9+
         // mint the last tokens which are left
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(108+1))]);
-        expect(this.token.emitTokens())
+        await expect(this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
             "0x0000000000000000000000000000000000000000",
             initialHolder.address,
