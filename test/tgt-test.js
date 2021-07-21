@@ -72,7 +72,7 @@ describe("TGT", function () {
         let acc = new Array(initialHolder.address);
         let amount = new Array(initialSupply.toString());
         await this.token.mint(acc, amount);
-        amount = new Array(new BN("100").toString());
+        amount = new Array(new BN("1").toString());
         await expectRevert.unspecified(this.token.mint(acc, amount), "TGT: surpassing INIT_SUPPLY");
     });
 
