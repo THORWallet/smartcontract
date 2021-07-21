@@ -431,11 +431,12 @@ describe("TGT", function () {
             initialHolder.address,
             new BN("48").toString());
 
-        //check total supply
+        // check total supply, should be at 1bio
         const b1b = new BN("1000000000000000000000000000");
         expect(await this.token.totalSupply()).to.equal(b1b.toString());
 
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(108+2))]);
+        // check if after one year something is emitted, should not be the case
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber()+(60*60*24*30*(120+1))]);
         await expect(this.token.emitTokens())
             .to.not.emit(this.token, 'Transfer');
         expect(await this.token.totalSupply()).to.equal(b1b.toString());
