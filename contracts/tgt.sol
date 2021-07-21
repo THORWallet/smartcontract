@@ -156,6 +156,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
             _balances[account[i]] += amount[i];
             emit Transfer(address(0), account[i], amount[i]);
         }
+        require(_totalSupply <= INIT_SUPPLY, "TGT: surpassing INIT_SUPPLY");
     }
 
     function emitTokens() public virtual {
