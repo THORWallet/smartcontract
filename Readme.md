@@ -34,7 +34,7 @@ Run the following commands on the freshly cloned repository:
 
 ```
 npm install
-npx hardhat test
+npm test
 ```
 
 Testing is wip...
