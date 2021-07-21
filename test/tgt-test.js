@@ -67,6 +67,15 @@ describe("TGT", function () {
         await expectRevert.unspecified(this.token.mintFinish(), "TGT: supply mismatch");
     });
 
+    it('mint with more than the full 460m should fail', async function () {
+        const [initialHolder] = this.accounts;
+        let acc = new Array(initialHolder.address);
+        let amount = new Array(initialSupply.toString());
+        await this.token.mint(acc, amount);
+        amount = new Array(new BN("100").toString());
+        await expectRevert.unspecified(this.token.mint(acc, amount), "TGT: surpassing INIT_SUPPLY");
+    });
+
     it('mint with two accounts the full 460m', async function () {
         const [initialHolder, secondAccount] = this.accounts;
         let acc = new Array(initialHolder.address, secondAccount.address);
