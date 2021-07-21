@@ -160,12 +160,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function emitTokens() public virtual {
         require(_live != 0, "TGT: contract not live yet");
-        emitTokensInternal();
-    }
-
-    //we expect that we have every month a transfer, if we don't we will trigger one,
-    //to emit tokens
-    function emitTokensInternal() internal virtual {
+        
         uint64 timeInM = uint64((block.timestamp - _live) / MONTH_IN_S);
         if (timeInM <= _lastEmitMAt) {
             return;
@@ -264,7 +259,6 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         }
         _balances[recipient] += amount;
 
-        emitTokensInternal();
         emit Transfer(sender, recipient, amount);
     }
 
@@ -277,7 +271,6 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
         _allowances[owner][spender] = amount;
 
-        emitTokensInternal();
         emit Approval(owner, spender, amount);
     }
 
