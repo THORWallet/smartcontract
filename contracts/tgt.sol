@@ -144,8 +144,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         _totalSupply -= amount;
     }
 
-    function mint(address[] calldata account, uint96[] calldata amount) public virtual {
-        require(msg.sender == _owner, "TGT: not the owner");
+    function mint(address[] calldata account, uint96[] calldata amount) public virtual onlyOwner {
         require(account.length == amount.length, "TGT: accounts and amounts length must match");
         require(_live == 0, "TGT: contract already live");
 
@@ -162,7 +161,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function emitTokens() public virtual {
         require(_live != 0, "TGT: contract not live yet");
-        
+
         uint64 timeInM = uint64((block.timestamp - _live) / MONTH_IN_S);
         if (timeInM <= _lastEmitMAt) {
             return;
@@ -204,8 +203,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         emit Transfer(address(0), _reserve, additionalAmountM);
     }
 
-    function mintFinish() public virtual {
-        require(msg.sender == _owner, "TGT: not the owner");
+    function mintFinish() public virtual onlyOwner {
         require(_totalSupply == INIT_SUPPLY, "TGT: supply mismatch");
         require(_live == 0, "TGT: contract is live already");
 
