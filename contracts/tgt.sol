@@ -66,6 +66,11 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
 
     function setCurve(uint8[] calldata curveHalvingYears) public virtual onlyOwner {
+        require(curveHalvingYears.length >= 5, 'TGT: curveHalvingYears not >= 5');
+        require(curveHalvingYears[curveHalvingYears.length - 1] == 1, 'TGT: last value must be 1');
+        for(uint256 i=0;i<curveHalvingYears.length-1;i++) {
+            require(curveHalvingYears[i] > 1, 'TGT: values must be > 1');
+        }
         _curveHalvingYears = curveHalvingYears;
     }
 
