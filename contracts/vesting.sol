@@ -83,8 +83,8 @@ contract Vesting {
             //we can give all of it, vesting time passed, otherwise we see a div by zero
             timeUnlocked = v.vestingAmount;
         } else {
-            uint256 vestingFraction = v.vestingDuration / currentDuration;
-            timeUnlocked = v.vestingAmount / vestingFraction;
+            uint256 vestingFactor = v.vestingDuration / currentDuration;
+            timeUnlocked = v.vestingAmount / vestingFactor;
         }
         return (v.unvested + timeUnlocked) - v.vestingClaimed;
     }
