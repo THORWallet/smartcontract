@@ -38,6 +38,13 @@ describe("TGT", function () {
         expect(await this.token.decimals()).to.equal(18);
     });
 
+    it('owner should be able to transfer ownership only once', async function () {
+        const [_, account, anotherAccount] = this.accounts;
+        expect(await this.token.transferOwner(account.address));
+
+        await expectRevert.unspecified(this.token.transferOwner(anotherAccount.address), "TGT: not the owner");
+    });
+
     describe("Test Basic ERC20", function () {
         it('shouldBehaveLikeERC20', async function () {
             const [initialHolder, recipient, anotherAccount] = this.accounts;

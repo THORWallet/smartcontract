@@ -60,22 +60,23 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         _reserve = msg.sender;
     }
 
-    function setCurve(uint8[] calldata curveHalvingYears) public virtual {
-        require(_owner == msg.sender, "TGT: not the owner");
+    modifier onlyOwner(){
+        require(msg.sender == _owner, "TGT: not the owner");
+        _;
+    }
 
+    function setCurve(uint8[] calldata curveHalvingYears) public virtual onlyOwner {
         _curveHalvingYears = curveHalvingYears;
     }
 
-    function transferOwner(address newOwner) public virtual {
-        require(_owner == msg.sender, "TGT: not the owner");
+    function transferOwner(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "TGT: transfer owner the zero address");
         require(newOwner != address(this), "TGT: transfer owner to this contract");
 
         _owner = newOwner;
     }
 
-    function setReserve(address reserve) public virtual {
-        require(_owner == msg.sender, "TGT: not the owner");
+    function setReserve(address reserve) public virtual onlyOwner {
         require(reserve != address(0), "TGT: set reserve to zero address");
         require(reserve != address(this), "TGT: set reserve to this contract");
 
