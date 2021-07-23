@@ -171,6 +171,8 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         if (timeInM <= _lastEmitMAt) {
             return;
         }
+        // timeInM at the start will be 1, so subtract 1 so that we start after one
+        // month with the emission from 0, to emit the full amount.
         uint64 timeInY = (timeInM - 1) / 12;
         if (timeInY >= _curveHalvingYears.length) {
             _lastEmitMAt = MAX_INT;
