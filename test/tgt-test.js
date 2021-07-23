@@ -110,6 +110,18 @@ describe("TGT", function () {
         amount2 = new Array("300", "700");
         await this.vesting.vest(acc2, amount2, cliff2, duration2);
 
+        await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "100");
+        //let bn = await this.vesting.vestedBalance();
+        //console.log(bn.toString());
+        let acc3 = new Array(fifthAccount.address);
+        let amount3 = new Array("100");
+        let cliff3 = new Array("50");
+        let duration3 = new Array("1");
+        await expectRevert.unspecified(this.vesting.vest(acc3, amount3, cliff3, duration3));
+
+        await this.token.transfer(this.vesting.address, "100");
+        await this.vesting.vest(acc3, amount3, cliff3, duration3);
+
     });
 
     //TODO: split it up
