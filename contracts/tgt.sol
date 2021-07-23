@@ -146,7 +146,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function mint(address[] calldata account, uint96[] calldata amount) public virtual onlyOwner {
         require(account.length == amount.length, "TGT: accounts and amounts length must match");
-        require(_live == 0, "TGT: contract already live");
+        require(_live == 0, "TGT: contract already live. It should be not live (live==false)");
 
         for(uint256 i=0;i<account.length;i++) {
             require(account[i] != address(0), "ERC20: mint to the zero address");
@@ -160,7 +160,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     }
 
     function emitTokens() public virtual {
-        require(_live != 0, "TGT: contract not live yet");
+        require(_live != 0, "TGT: contract not live yet. It should be live (live==true)");
 
         uint64 timeInM = uint64((block.timestamp - _live) / MONTH_IN_S);
         if (timeInM <= _lastEmitMAt) {
@@ -205,7 +205,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
 
     function mintFinish() public virtual onlyOwner {
         require(_totalSupply == INIT_SUPPLY, "TGT: supply mismatch");
-        require(_live == 0, "TGT: contract is live already");
+        require(_live == 0, "TGT: contract is live already. It should be not live (live==false)");
 
         _live = uint64(block.timestamp);
     }
@@ -251,7 +251,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         //goes to address 0
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(sender != address(this), "TGT: sender is this contract");
-        require(_live != 0, "TGT: contract not live yet");
+        require(_live != 0, "TGT: contract not live yet. It should be live (live==true)");
 
         uint256 senderBalance = _balances[sender];
         require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
@@ -269,7 +269,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         require(owner != address(this), "TGT: owner is this contract");
         require(spender != address(0), "ERC20: approve to the zero address");
         require(spender != address(this), "TGT: spender is this contract");
-        require(_live != 0, "TGT: contract not live yet");
+        require(_live != 0, "TGT: contract not live yet. It should be live (live==true)");
 
         _allowances[owner][spender] = amount;
 
