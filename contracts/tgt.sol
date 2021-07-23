@@ -195,10 +195,9 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         _balances[_reserve] += additionalAmountM;
         _lastEmitMAt = timeInM;
 
-        //do we need ERC777ish functionality to check if reserve can be called?
-        //if (isContract(_reserve) && **IS-RECEIVER(_reserve)**) {
-        //    IERC677Receiver(_reserve).onTokenTransfer(_reserve, additionalAmountM, "");
-        //}
+        if (isContract(_reserve)) {
+            IERC677Receiver(_reserve).onTokenTransfer(address(this), additionalAmountM, "");
+        }
 
         emit Transfer(address(0), _reserve, additionalAmountM);
     }

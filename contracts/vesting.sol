@@ -11,11 +11,6 @@ interface ITGTERC20Metadata is IERC20 {
     function live() external view returns (uint64);
 }
 
-//do we need ERC777ish functionality to check if reserve can be called?
-//interface IERC677Receiver {
-//    function onTokenTransfer(address sender, uint value, bytes calldata data) external;
-//}
-
 contract Vesting {
     ITGTERC20Metadata private _tgtContract;
     address private _owner;
