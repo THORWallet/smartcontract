@@ -35,6 +35,8 @@ contract Vesting {
         uint96 unvested;
     }
 
+    event Vested(address indexed account, uint96 amount, uint96 unvestedAmount, uint64 vestingDuration);
+
     modifier onlyOwner(){
         require(msg.sender == _owner, "Vesting: not the owner");
         _;
@@ -63,8 +65,10 @@ contract Vesting {
             //only vest those accounts that are not yet vested. We dont want to merge vestings
             if(_vesting[accounts[i]].vestingAmount == 0) {
                 _vesting[accounts[i]] = VestingParams(amounts[i] - unvestedAmounts[i], vestingDurations[i], 0, unvestedAmounts[i]);
+                emit Vested(accounts[i], amounts[i], unvestedAmounts[i], vestingDurations[i]);
             }
         }
+        require(_vestedBalance <= _tgtContract.balanceOf(address(this)), "Vesting: not enough tokens in this contract for vesting");
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
@@ -110,6 +114,7 @@ contract Vesting {
         require(amount <= claimableAmount(v), "TGT: cannot transfer vested funds");
 
         v.vestingClaimed += amount;
+        _vestedBalance -= amount;
         _tgtContract.transfer(to, amount);
     }
 }

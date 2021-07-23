@@ -92,6 +92,26 @@ describe("TGT", function () {
         expect(await this.token.balanceOf(secondAccount.address)).to.equal("1");
     });
 
+    it('test vesting with not enough tokens', async function () {
+        const [initialHolder, secondAccount, thirdAccount, fourthAccount, fifthAccount] = this.accounts;
+        let acc = new Array(initialHolder.address, secondAccount.address);
+        let amount = new Array(initialSupply.subn(100).toString(), new BN("100").toString());
+        await this.token.mint(acc, amount);
+        await this.token.mintFinish();
+        await this.token.transfer(this.vesting.address, "1000");
+
+        let acc2 = new Array(thirdAccount.address, fourthAccount.address);
+        let amount2 = new Array("300", "701");
+        let cliff2 = new Array("100", "200");
+        let duration2 = new Array(60 * 60 * 24 * 30 * 12, 60 * 60 * 24 * 30);
+
+        await expectRevert.unspecified(this.vesting.vest(acc2, amount2, cliff2, duration2));
+
+        amount2 = new Array("300", "700");
+        await this.vesting.vest(acc2, amount2, cliff2, duration2);
+
+    });
+
     //TODO: split it up
     it('test vesting', async function () {
         const [initialHolder, secondAccount, thirdAccount, fourthAccount, fifthAccount] = this.accounts;
