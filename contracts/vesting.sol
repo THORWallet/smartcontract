@@ -34,14 +34,25 @@ contract Vesting {
         uint96 cliff;
     }
 
+    modifier onlyOwner(){
+        require(msg.sender == _owner, "Vesting: not the owner");
+        _;
+    }
+
     constructor(address tgtContract) {
         _owner = msg.sender;
         _tgtContract = ITGTERC20Metadata(tgtContract);
     }
 
+    function transferOwner(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Vesting: transfer owner the zero address");
+        require(newOwner != address(this), "Vesting: transfer owner to this contract");
+
+        _owner = newOwner;
+    }
+
     function vest(address[] calldata accounts, uint96[] calldata amounts, uint96[] calldata cliffAmounts,
-                  uint64[] calldata vestingDurations) public virtual {
-        require(_owner == msg.sender, "Vesting: not the owner");
+                  uint64[] calldata vestingDurations) public virtual onlyOwner {
         require(accounts.length == amounts.length, "Vesting: accounts and amounts length must match");
         require(amounts.length == cliffAmounts.length, "Vesting: amounts and cliffAmounts length must match");
         require(cliffAmounts.length == vestingDurations.length, "Vesting: cliffAmounts and vestingDurations length must match");
@@ -62,7 +73,7 @@ contract Vesting {
         VestingParams memory v = _vesting[vested];
         return claimableAmount(v);
     }
-    
+
     function claimableAmount(VestingParams memory v) internal view virtual returns (uint256) {
         uint256 currentDuration = block.timestamp - _tgtContract.live();
 
