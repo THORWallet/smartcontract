@@ -180,6 +180,9 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
             uint96 toBeMintedFinal = (MAX_SUPPLY - INIT_SUPPLY) - _totalEmitted;
             _totalSupply += toBeMintedFinal;
             _balances[_reserve] += toBeMintedFinal;
+            if (isContract(_reserve)) {
+                IERC677Receiver(_reserve).onTokenTransfer(address(this), toBeMintedFinal, "");
+            }
             emit Transfer(address(0), _reserve, toBeMintedFinal);
             return;
         }
@@ -203,7 +206,6 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         if (isContract(_reserve)) {
             IERC677Receiver(_reserve).onTokenTransfer(address(this), additionalAmountM, "");
         }
-
         emit Transfer(address(0), _reserve, additionalAmountM);
     }
 
