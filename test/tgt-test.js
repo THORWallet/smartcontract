@@ -102,25 +102,25 @@ describe("TGT", function () {
 
         let acc2 = new Array(thirdAccount.address, fourthAccount.address);
         let amount2 = new Array("300", "701");
-        let cliff2 = new Array("100", "200");
+        let unvest2 = new Array("100", "200");
         let duration2 = new Array(60 * 60 * 24 * 30 * 12, 60 * 60 * 24 * 30);
 
-        await expectRevert.unspecified(this.vesting.vest(acc2, amount2, cliff2, duration2));
+        await expectRevert.unspecified(this.vesting.vest(acc2, amount2, unvest2, duration2));
 
         amount2 = new Array("300", "700");
-        await this.vesting.vest(acc2, amount2, cliff2, duration2);
+        await this.vesting.vest(acc2, amount2, unvest2, duration2);
 
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "100");
         //let bn = await this.vesting.vestedBalance();
         //console.log(bn.toString());
         let acc3 = new Array(fifthAccount.address);
         let amount3 = new Array("100");
-        let cliff3 = new Array("50");
+        let unvest3 = new Array("50");
         let duration3 = new Array("1");
-        await expectRevert.unspecified(this.vesting.vest(acc3, amount3, cliff3, duration3));
+        await expectRevert.unspecified(this.vesting.vest(acc3, amount3, unvest3, duration3));
 
         await this.token.transfer(this.vesting.address, "100");
-        await this.vesting.vest(acc3, amount3, cliff3, duration3);
+        await this.vesting.vest(acc3, amount3, unvest3, duration3);
 
     });
 
@@ -144,10 +144,10 @@ describe("TGT", function () {
         //call vest
         let acc2 = new Array(thirdAccount.address, fourthAccount.address);
         let amount2 = new Array("300", "700");
-        let cliff2 = new Array("100", "200");
+        let unvest2 = new Array("100", "200");
         let duration2 = new Array(60 * 60 * 24 * 30 * 12, 60 * 60 * 24 * 30);
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 3]);
-        await this.vesting.vest(acc2, amount2, cliff2, duration2);
+        await this.vesting.vest(acc2, amount2, unvest2, duration2);
 
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("300");
 
