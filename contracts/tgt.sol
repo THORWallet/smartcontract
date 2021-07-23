@@ -171,7 +171,7 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         if (timeInM <= _lastEmitMAt) {
             return;
         }
-        uint64 timeInY = timeInM / 12;
+        uint64 timeInY = (timeInM - 1) / 12;
         if (timeInY >= _curveHalvingYears.length) {
             _lastEmitMAt = MAX_INT;
             //now we mint all the tokens, also if we forgot a monthly emit
