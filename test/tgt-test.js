@@ -204,7 +204,7 @@ describe("TGT", function () {
         expect(await this.token.totalSupply()).to.equal(initialSupply.toString());
 
         const b50m = new BN("50000000000000000000000000");
-        // after 1 Month, should emit 15m and emit Transfer event
+        // after 1 Month, should emit 50m/12 and emit Transfer event
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30)]);
         expect(await this.token.emitTokens())
             .to.emit(this.token, 'Transfer').withArgs(
@@ -357,7 +357,7 @@ describe("TGT", function () {
         await this.token.emitTokens();
         expect(await this.token.totalSupply()).to.equal(initialSupply.toString());
 
-        // after 1 Month, should emit 15m and emit Transfer event
+        // after 1 Month, should emit 50m/12 and emit Transfer event
         const b50m = new BN("50000000000000000000000000");
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30)]);
         expect(await this.token.emitTokens())
@@ -374,7 +374,7 @@ describe("TGT", function () {
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30) + 2]);
         expect(await this.token.totalSupply()).to.equal(initialSupply.add(b50m.divn(12)).toString());
 
-        //now we emit for the next 11 month (end of feb to end of dec, jan already emitted before)
+        //now we emit for the next 10 month (end of feb to end of dec, jan already emitted before)
         for (let i = 3; i <= 12; i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30 * i)]);
             await expect(this.token.emitTokens())
