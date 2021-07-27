@@ -183,11 +183,11 @@ describe("TGT", function () {
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "16");
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("184");
         //wait till end, claim all
-        await setBlockTimestampInMonth(time, 4 + 12);
+        await setBlockTimestampInMonth(time, 12);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));
-        await setBlockTimestampInMonthAndSeconds(time, 4+12, 1);
+        await setBlockTimestampInMonthAndSeconds(time, 12, 1);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));
-        await setBlockTimestampInMonthAndSeconds(time, 4+12, 2);
+        await setBlockTimestampInMonthAndSeconds(time, 12, 2);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "184");
 
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("0");
