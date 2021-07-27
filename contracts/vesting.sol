@@ -74,14 +74,14 @@ contract Vesting {
     function claimableAmount(VestingParams memory v) internal view virtual returns (uint256) {
         uint256 currentDuration = block.timestamp - _tgtContract.live();
 
-        uint256 timeUnlocked = 0;
+        uint256 unlockedFunds = 0;
         if(v.vestingDuration < currentDuration) {
             //we can give all of it, vesting time passed, otherwise we see a div by zero
-            timeUnlocked = v.vestingAmount;
+            unlockedFunds = v.vestingAmount;
         } else {
-            timeUnlocked = v.vestingAmount * currentDuration / v.vestingDuration;
+            unlockedFunds = v.vestingAmount * currentDuration / v.vestingDuration;
         }
-        return timeUnlocked - v.vestingClaimed;
+        return unlockedFunds - v.vestingClaimed;
     }
 
     function vestedBalance() public view virtual returns (uint256) {
