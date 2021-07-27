@@ -47,11 +47,11 @@ contract TGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
     address private _reserve;
     uint64 private _lastEmitMAt;
     uint64 private _lastEmitYAt;
-    uint8[] private _curveHalvingYears = [3,3,3,2,2,2,2,2,1]; //1 year has 360 days -> 1 month = 30 days
+    uint8[] private _curveHalvingYears = [5,5,4,4,3,3,2,2,1]; //1 year has 360 days -> 1 month = 30 days
     uint96 private _curveSupply = INIT_SUPPLY;
 
     uint96 constant MAX_SUPPLY  = 1000000000 * (10**18); //1 billion
-    uint96 constant INIT_SUPPLY =  460000000 * (10**18); //460 million
+    uint96 constant INIT_SUPPLY =  750000000 * (10**18); //460 + 290(locked) million
     uint64 constant MAX_INT = 2**64 - 1;
     uint64 constant MONTH_IN_S = 60 * 60 * 24 * 30;
 
