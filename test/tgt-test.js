@@ -374,7 +374,7 @@ describe("TGT", function () {
         await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30) + 2]);
         expect(await this.token.totalSupply()).to.equal(initialSupply.add(b50m.divn(12)).toString());
 
-        //now we emit for the next 10 month (end of feb to end of dec, jan already emitted before)
+        //now we emit for the next 10 month (end of march to end of dec, jan already emitted before)
         for (let i = 3; i <= 12; i++) {
             await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30 * i)]);
             await expect(this.token.emitTokens())
@@ -472,7 +472,7 @@ describe("TGT", function () {
                     b10m.divn(12).toString());
         }
 
-        // 40 due to rounding + 15m since we forgot a month in the first year
+        // 40 due to rounding + 50m/12 since we forgot a month in the first year
         expect(await this.token.totalSupply()).to.equal(maxSupply.sub(new BN("40")).sub(b50m.divn(12)).toString());
 
         // next year 9+
