@@ -64,7 +64,7 @@ contract Vesting {
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
-        if(block.timestamp <= _tgtContract.live()) {
+        if(block.timestamp <= _tgtContract.live() || _tgtContract.live() == 0) {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
