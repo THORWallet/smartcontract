@@ -1,6 +1,7 @@
 const {BN, expectRevert} = require('@openzeppelin/test-helpers');
 const {expect} = require("chai");
 const hre = require("hardhat");
+const {setBlockTimestampInSeconds, setBlockTimestampInMonth, setBlockTimestampInMonthAndSeconds, mintNewBlock} = require("./utils/minting-blocks");
 
 //from: https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/test/token/ERC20
 const {shouldBehaveLikeERC20} = require('./utils/ERC20.behavior');
@@ -98,30 +99,31 @@ describe("TGT", function () {
         let amount = new Array(initialSupply.subn(100).toString(), new BN("100").toString());
         await this.token.mint(acc, amount);
         await this.token.mintFinish();
+        const time = await this.token.live();
         await this.token.transfer(this.vesting.address, "1000");
 
         let acc2 = new Array(thirdAccount.address, fourthAccount.address);
         let amount2 = new Array("300", "701");
-        let unvest2 = new Array("100", "200");
         let duration2 = new Array(60 * 60 * 24 * 30 * 12, 60 * 60 * 24 * 30);
 
-        await expectRevert.unspecified(this.vesting.vest(acc2, amount2, unvest2, duration2));
+        await expectRevert.unspecified(this.vesting.vest(acc2, amount2, duration2));
 
         amount2 = new Array("300", "700");
-        await this.vesting.vest(acc2, amount2, unvest2, duration2);
+        await this.vesting.vest(acc2, amount2, duration2);
+
+        // 4 month later 100 should be available
+        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 60 * 60 * 24 * 30 * 4]);
 
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "100");
         //let bn = await this.vesting.vestedBalance();
         //console.log(bn.toString());
         let acc3 = new Array(fifthAccount.address);
         let amount3 = new Array("100");
-        let unvest3 = new Array("50");
         let duration3 = new Array("1");
-        await expectRevert.unspecified(this.vesting.vest(acc3, amount3, unvest3, duration3));
+        await expectRevert.unspecified(this.vesting.vest(acc3, amount3, duration3));
 
         await this.token.transfer(this.vesting.address, "100");
-        await this.vesting.vest(acc3, amount3, unvest3, duration3);
-
+        await this.vesting.vest(acc3, amount3, duration3);
     });
 
     //TODO: split it up
@@ -135,10 +137,10 @@ describe("TGT", function () {
         //1000 tokens are now in the vesting contract
         expect(await this.vesting.canClaim(initialHolder.address)).to.equal("0");
 
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 1]);
+        await setBlockTimestampInSeconds(time, 1);
         await this.token.transfer(this.vesting.address, "1000");
 
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 2]);
+        await setBlockTimestampInSeconds(time, 2);
         expect(await this.vesting.canClaim(initialHolder.address)).to.equal("0");
 
         //call vest
@@ -146,43 +148,46 @@ describe("TGT", function () {
         let amount2 = new Array("300", "700");
         let unvest2 = new Array("100", "200");
         let duration2 = new Array(60 * 60 * 24 * 30 * 12, 60 * 60 * 24 * 30);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 3]);
-        await this.vesting.vest(acc2, amount2, unvest2, duration2);
+        await setBlockTimestampInSeconds(time, 3);
+        await this.vesting.vest(acc2, amount2, duration2);
 
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("300");
 
         //can claim
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 4]);
+        await setBlockTimestampInMonth(time, 4);
+        await mintNewBlock();
         //100 + linear -> way too small, stay at 100
+        //check if we can claim
         expect(await this.vesting.canClaim(thirdAccount.address)).to.equal("100");
-        //chekc if we can claim
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 5]);
+        await setBlockTimestampInMonthAndSeconds(time, 4, 5);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "101"));
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 6]);
+        await setBlockTimestampInMonthAndSeconds(time, 4, 6);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "1");
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 7]);
+        await setBlockTimestampInMonthAndSeconds(time, 4, 7);
 
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("299");
 
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "100"));
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 8]);
+        await setBlockTimestampInMonthAndSeconds(time, 4, 8);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "99");
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 9]);
+        await setBlockTimestampInMonthAndSeconds(time, 4, 9);
         expect(await this.token.balanceOf(fifthAccount.address)).to.equal("100");
         //test linear vesting
 
-        //one month later, we shoud have 16 tokens more
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30)]);
-        await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "17"));
-        // 299 - 99 but not - 17
+        //one month later, we shoud have 25 tokens more
+        await setBlockTimestampInMonth(time, 5);
+        await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "26"));
+        // 299 - 99 but not - 26
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("200");
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 1 + (60 * 60 * 24 * 30)]);
+        await setBlockTimestampInMonthAndSeconds(time, 5, 1);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "16");
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("184");
         //wait till end, claim all
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + (60 * 60 * 24 * 30 * 12)]);
+        await setBlockTimestampInMonth(time, 4 + 12);
         await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));
-        await ethers.provider.send('evm_setNextBlockTimestamp', [time.toNumber() + 1 + (60 * 60 * 24 * 30 * 12)]);
+        await setBlockTimestampInMonthAndSeconds(time, 4+12, 1);
+        await expectRevert.unspecified(this.vesting.connect(thirdAccount).claim(fifthAccount.address, "185"));
+        await setBlockTimestampInMonthAndSeconds(time, 4+12, 2);
         await this.vesting.connect(thirdAccount).claim(fifthAccount.address, "184");
 
         expect(await this.vesting.vestedBalanceOf(thirdAccount.address)).to.equal("0");
