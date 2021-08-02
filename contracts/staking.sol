@@ -128,23 +128,23 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @notice Update the given pool's token allocation point. Can only be called by the owner.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param _allocPoint New AP of the pool.
-    function set(uint256 pid, uint256 _allocPoint, bool _withUpdate) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint, bool _withUpdate) public onlyOwner {
         if (_withUpdate) {
             massUpdatePools();
         }
-        totalAllocPoint = totalAllocPoint - poolInfo[pid].allocPoint + _allocPoint;
-        poolInfo[pid].allocPoint = _allocPoint;
+        totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
+        poolInfo[_pid].allocPoint = _allocPoint;
 
-        emit LogSetPool(pid, _allocPoint);
+        emit LogSetPool(_pid, _allocPoint);
     }
 
     /// @notice View function to see pending token reward on frontend.
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param _user Address of user.
     /// @return pending token reward for a given user.
-    function pendingRewards(uint256 pid, address _user) external view returns (uint256) {
-        PoolInfo memory pool = poolInfo[pid];
-        UserInfo storage user = userInfo[pid][_user];
+    function pendingRewards(uint256 _pid, address _user) external view returns (uint256) {
+        PoolInfo memory pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][_user];
         uint256 accRewardPerShare = pool.accRewardPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
