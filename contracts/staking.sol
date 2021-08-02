@@ -126,7 +126,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     }
 
     /// @notice Update the given pool's token allocation point. Can only be called by the owner.
-    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _allocPoint New AP of the pool.
     function set(uint256 _pid, uint256 _allocPoint, bool _withUpdate) public onlyOwner {
         if (_withUpdate) {
@@ -139,7 +139,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     }
 
     /// @notice View function to see pending token reward on frontend.
-    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param _pid The index of the pool. See `poolInfo`.
     /// @param _user Address of user.
     /// @return pending token reward for a given user.
     function pendingRewards(uint256 _pid, address _user) external view returns (uint256) {
