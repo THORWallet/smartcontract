@@ -173,7 +173,6 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
     /// @notice Update reward variables of the given pool.
     /// @param pid The index of the pool. See `poolInfo`.
-    // Update reward variables of the given pool to be up-to-date.
     function updatePool(uint256 pid) public {
         PoolInfo storage pool = poolInfo[pid];
         if (block.number <= pool.lastRewardBlock) {
