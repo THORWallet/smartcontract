@@ -24,5 +24,8 @@ module.exports = {
         interval: 0
       }
     }
+  },
+  paths: {
+    sources: "./contracts/*.sol"
   }
 };
