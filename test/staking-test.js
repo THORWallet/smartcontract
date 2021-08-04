@@ -7,7 +7,7 @@ let token = undefined;
 let vesting = undefined;
 let staking = undefined;
 let accounts = undefined;
-let [initialHolder, secondAccount, thirdAccount] = [];
+let [initialHolder, secondAccount, thirdAccount, fourthAccount] = [];
 let liveTime = undefined;
 
 const b1m = new BN("1000000000000000000000000");
@@ -26,7 +26,7 @@ describe("Staking", function () {
         this.vesting = await VST.deploy(this.token.address);
         await this.vesting.deployed();
 
-        [initialHolder, secondAccount, thirdAccount] = this.accounts;
+        [initialHolder, secondAccount, thirdAccount, fourthAccount] = this.accounts;
         const acc = [
             initialHolder.address,
             this.vesting.address,
@@ -104,7 +104,7 @@ describe("Staking", function () {
         await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(3)).toString(), secondAccount.address);
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(
             b1m.mul(new BN(6))
-                // reqard for 1 block
+                // reward for 1 block
                 .add(b1Token.mul(new BN(1)))
                 .toString()
         );
@@ -112,7 +112,7 @@ describe("Staking", function () {
         const blockNumber2 = await getBlockNumber();
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(
             b1m.mul(new BN(0))
-                // reqard for 2 blocks
+                // reward for 2 blocks
                 .add(b1Token.mul(new BN(2)))
                 .toString()
         );
@@ -123,7 +123,7 @@ describe("Staking", function () {
         await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(5)).toString(), secondAccount.address);
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(
             b1m.mul(new BN(5))
-                // reqard for 3 blocks
+                // reward for 3 blocks
                 .add(b1Token.mul(new BN(3)))
                 .toString()
         );
@@ -133,38 +133,50 @@ describe("Staking", function () {
         await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
 
         await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
-        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
-        const blockNumber1 = await getBlockNumber();
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(5)).toString(), secondAccount.address);
 
-        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
-            b1m.mul(new BN(9))
-                .toString());
+        await this.token.connect(thirdAccount).approve(this.staking.address, b1m.mul(new BN(50)).toString());
+        await this.staking.connect(thirdAccount).deposit(0, b1m.mul(new BN(20)).toString(), thirdAccount.address);
+        await this.staking.connect(thirdAccount).deposit(0, b1m.mul(new BN(30)).toString(), thirdAccount.address);
 
-        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(3)).toString(), secondAccount.address);
-        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
-            b1m.mul(new BN(6))
-                // reqard for 1 block
-                .add(b1Token.mul(new BN(1)))
-                .toString()
-        );
-        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(6)).toString(), secondAccount.address);
-        const blockNumber2 = await getBlockNumber();
-        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
-            b1m.mul(new BN(0))
-                // reqard for 2 blocks
-                .add(b1Token.mul(new BN(2)))
-                .toString()
-        );
-
-        // verify number of minted blocks
-        expect(blockNumber2-blockNumber1).to.equal(2);
-
-        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(5)).toString(), secondAccount.address);
+        console.log("asfsd", b1Token.mul(new BN(5)).div(new BN(5+20+30)).toString())
+        await this.staking.connect(secondAccount).harvest(0, secondAccount.address);
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(
             b1m.mul(new BN(5))
-                // reqard for 3 blocks
-                .add(b1Token.mul(new BN(3)))
+                // reward for 2 whole block rewards
+                .add(b1Token.mul(new BN(2)))
+                // 1 reward sharing with the 20 deposit
+                .add(b1Token.mul(new BN(5)).div(new BN(5+20)))
+                // 1 reward sharing with 20 and 30
+                .add(b1Token.mul(new BN(5)).div(new BN(5+20+30)))
                 .toString()
         );
+        //
+        // await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(3)).toString(), secondAccount.address);
+        // expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+        //     b1m.mul(new BN(6))
+        //         // reqard for 1 block
+        //         .add(b1Token.mul(new BN(1)))
+        //         .toString()
+        // );
+        // await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(6)).toString(), secondAccount.address);
+        // const blockNumber2 = await getBlockNumber();
+        // expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+        //     b1m.mul(new BN(0))
+        //         // reqard for 2 blocks
+        //         .add(b1Token.mul(new BN(2)))
+        //         .toString()
+        // );
+        //
+        // // verify number of minted blocks
+        // expect(blockNumber2-blockNumber1).to.equal(2);
+        //
+        // await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(5)).toString(), secondAccount.address);
+        // expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+        //     b1m.mul(new BN(5))
+        //         // reqard for 3 blocks
+        //         .add(b1Token.mul(new BN(3)))
+        //         .toString()
+        // );
     });
 });
