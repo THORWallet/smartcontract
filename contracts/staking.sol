@@ -217,14 +217,14 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
-        user.rewardDebt = accumulatedReward;
 
         if (amount > 0) {
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), amount);
             user.amount = user.amount + amount;
         }
+        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
-        emit Deposit(msg.sender, pid, amount, to);
+    emit Deposit(msg.sender, pid, amount, to);
     }
 
     /// @notice Withdraw LP tokens from Staking.
@@ -243,14 +243,14 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
-        user.rewardDebt = accumulatedReward;
 
         if (amount > 0) {
             user.amount = user.amount - amount;
             pool.lpToken.safeTransfer(to, amount);
         }
+        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
-        emit Withdraw(msg.sender, pid, amount, to);
+    emit Withdraw(msg.sender, pid, amount, to);
     }
 
     /// @notice Harvest proceeds for transaction sender to `to`.
