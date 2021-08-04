@@ -151,7 +151,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
             uint256 blocks = block.number - pool.lastRewardBlock;
             uint256 reward = (blocks * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
-            accRewardPerShare = accRewardPerShare + (reward * ACC_PRECISION) / lpSupply;
+            accRewardPerShare = accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
         }
         uint256 accumulatedReward = (user.amount * accRewardPerShare) / ACC_PRECISION;
         return accumulatedReward - user.rewardDebt;
@@ -186,7 +186,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         }
         uint256 blocks = block.number - pool.lastRewardBlock;
         uint256 reward = (blocks * rewardPerBlock * pool.allocPoint) / totalAllocPoint;
-        pool.accRewardPerShare = pool.accRewardPerShare + (reward * ACC_PRECISION) / lpSupply;
+        pool.accRewardPerShare = pool.accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
         pool.lastRewardBlock = block.number;
 
         console.log("accRewardPerShare", pool.accRewardPerShare);
