@@ -1,7 +1,7 @@
 const {BN, expectRevert} = require('@openzeppelin/test-helpers');
 const {expect} = require("chai");
 const hre = require("hardhat");
-const {getBlockNumber} = require("./utils/minting-blocks");
+const {getBlockNumber, mintNewBlock} = require("./utils/minting-blocks");
 
 let token = undefined;
 let vesting = undefined;
@@ -16,6 +16,8 @@ const b1Token = new BN("1000000000000000000");
 describe("Staking", function () {
 
     beforeEach("deploy contracts and mint and vest", async function () {
+        await network.provider.send("evm_setAutomine", [true]);
+
         this.accounts = await hre.ethers.getSigners();
 
         const TGT = await ethers.getContractFactory("TGT");
@@ -176,5 +178,112 @@ describe("Staking", function () {
                 .sub(new BN("40909090909090"))
                 .toString()
         );
+    });
+
+    it('test deposit in same blocks 1', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1Token.toString());
+    });
+
+    it('test deposit in same blocks 2', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1Token.toString());
+    });
+
+    it('test deposit in same blocks 3', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(200)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10-2)).add(b1Token).toString());
+    });
+
+    it('test deposit and withdraw in same blocks', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10)).toString());
+    });
+
+    it('test withdraw in same blocks 1', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10)).add(b1Token).toString());
+    });
+
+    it('test withdraw in same blocks 2', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10)).add(b1Token).toString());
+    });
+
+    it('test withdraw in same blocks 3', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+
+        await network.provider.send("evm_setAutomine", [false]);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(200)).toString(), secondAccount.address);
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        await mintNewBlock();
+
+        // second transaction should not have been successful so only 2 are withdrawn
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(2)).add(b1Token).toString());
     });
 });
