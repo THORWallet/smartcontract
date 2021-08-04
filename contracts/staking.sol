@@ -145,7 +145,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @return pending token reward for a given user.
     function pendingRewards(uint256 _pid, address _user) external view returns (uint256) {
         PoolInfo memory pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
+        UserInfo memory user = userInfo[_pid][_user];
         uint256 accRewardPerShare = pool.accRewardPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
@@ -229,7 +229,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param amount LP token amount to withdraw.
     /// @param to Receiver of the LP tokens.
     function withdraw(uint256 pid, uint256 amount, address to) public nonReentrant {
-        PoolInfo storage pool = poolInfo[pid];
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
         require(user.amount >= amount, "withdraw: not good");
         updatePool(pid);
@@ -254,7 +254,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param to Receiver of token rewards.
     function harvest(uint256 pid, address to) public {
-        PoolInfo storage pool = poolInfo[pid];
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
         updatePool(pid);
 
@@ -272,7 +272,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param to Receiver of the LP tokens.
     function emergencyWithdraw(uint256 pid, address to) public {
-        PoolInfo storage pool = poolInfo[pid];
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
 
         uint256 amount = user.amount;
