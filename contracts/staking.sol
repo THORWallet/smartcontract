@@ -108,7 +108,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     /// @param _allocPoint AP of the new pool.
     /// @param _lpToken Address of the LP ERC-20 token.
-    function add(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
+    function addPool(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
         require(poolExistence[_lpToken] == false, "Staking: duplicated pool");
         if (_withUpdate) {
             massUpdatePools();

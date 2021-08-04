@@ -62,14 +62,14 @@ describe("Staking", function () {
 
     it('add pool', async function () {
         expect(await this.staking.connect(secondAccount).poolLength()).to.equal("0");
-        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
         expect(await this.staking.connect(secondAccount).poolLength()).to.equal("1");
-        await expectRevert.unspecified(this.staking.connect(initialHolder).add(20, this.token.address, false));
+        await expectRevert.unspecified(this.staking.connect(initialHolder).addPool(20, this.token.address, false));
         expect(await this.staking.connect(secondAccount).poolLength()).to.equal("1");
     });
 
     it('test basic staking happy path', async function () {
-        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
 
         await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
         await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
@@ -91,7 +91,7 @@ describe("Staking", function () {
     });
 
     it('test staking with more than one deposit', async function () {
-        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
 
         await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
         await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
@@ -127,6 +127,44 @@ describe("Staking", function () {
                 .add(b1Token.mul(new BN(3)))
                 .toString()
         );
+    });
 
+    it('test staking with more than account', async function () {
+        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        const blockNumber1 = await getBlockNumber();
+
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(9))
+                .toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(3)).toString(), secondAccount.address);
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(6))
+                // reqard for 1 block
+                .add(b1Token.mul(new BN(1)))
+                .toString()
+        );
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(6)).toString(), secondAccount.address);
+        const blockNumber2 = await getBlockNumber();
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(0))
+                // reqard for 2 blocks
+                .add(b1Token.mul(new BN(2)))
+                .toString()
+        );
+
+        // verify number of minted blocks
+        expect(blockNumber2-blockNumber1).to.equal(2);
+
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(5)).toString(), secondAccount.address);
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(5))
+                // reqard for 3 blocks
+                .add(b1Token.mul(new BN(3)))
+                .toString()
+        );
     });
 });
