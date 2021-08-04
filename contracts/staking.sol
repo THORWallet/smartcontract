@@ -113,14 +113,13 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         if (_withUpdate) {
             massUpdatePools();
         }
-        uint256 _lastRewardBlock = block.number;
         totalAllocPoint = totalAllocPoint + _allocPoint;
 
         poolExistence[_lpToken] = true;
         poolInfo.push(PoolInfo({
             lpToken : _lpToken,
             allocPoint: _allocPoint,
-            lastRewardBlock: _lastRewardBlock,
+            lastRewardBlock: block.number,
             accRewardPerShare: 0
         }));
 
