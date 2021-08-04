@@ -199,10 +199,9 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     function deposit(uint256 pid, uint256 amount, address to) public nonReentrant {
 
         console.log("block.number", block.number);
-
-        PoolInfo storage pool = poolInfo[pid];
-        UserInfo storage user = userInfo[pid][msg.sender];
         updatePool(pid);
+        PoolInfo memory pool = poolInfo[pid];
+        UserInfo storage user = userInfo[pid][msg.sender];
 
         console.log("user.amount",user.amount);
 
@@ -229,10 +228,10 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param amount LP token amount to withdraw.
     /// @param to Receiver of the LP tokens.
     function withdraw(uint256 pid, uint256 amount, address to) public nonReentrant {
-        PoolInfo storage pool = poolInfo[pid];
+        updatePool(pid);
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
         require(user.amount >= amount, "withdraw: not good");
-        updatePool(pid);
 
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
@@ -254,9 +253,9 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param to Receiver of token rewards.
     function harvest(uint256 pid, address to) public {
-        PoolInfo storage pool = poolInfo[pid];
-        UserInfo storage user = userInfo[pid][msg.sender];
         updatePool(pid);
+        PoolInfo memory pool = poolInfo[pid];
+        UserInfo storage user = userInfo[pid][msg.sender];
 
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
         uint256 pendingReward = accumulatedReward - user.rewardDebt;
@@ -272,7 +271,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param pid The index of the pool. See `poolInfo`.
     /// @param to Receiver of the LP tokens.
     function emergencyWithdraw(uint256 pid, address to) public {
-        PoolInfo storage pool = poolInfo[pid];
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
 
         uint256 amount = user.amount;
@@ -290,9 +289,9 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
         if (amount > 0) {
             // Deposit skipping token transfer (as it already was)
-            PoolInfo storage pool = poolInfo[pid];
-            UserInfo storage user = userInfo[pid][to];
             updatePool(pid);
+            PoolInfo memory pool = poolInfo[pid];
+            UserInfo storage user = userInfo[pid][to];
 
             // Effects
             user.amount = user.amount + amount;
