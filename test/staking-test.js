@@ -1,11 +1,7 @@
 const {BN, expectRevert} = require('@openzeppelin/test-helpers');
 const {expect} = require("chai");
 const hre = require("hardhat");
-const {setBlockTimestampInSeconds, setBlockTimestampInMonth, setBlockTimestampInMonthAndSeconds, mintNewBlock} = require("./utils/minting-blocks");
-
-//from: https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/test/token/ERC20
-const {shouldBehaveLikeERC20} = require('./utils/ERC20.behavior');
-const {allowanceERC20} = require('./utils/ERC20.allowance');
+const {getBlockNumber} = require("./utils/minting-blocks");
 
 let token = undefined;
 let vesting = undefined;
@@ -14,8 +10,6 @@ let accounts = undefined;
 let [initialHolder, secondAccount, thirdAccount] = [];
 let liveTime = undefined;
 
-const initialSupply = new BN("750000000000000000000000000");
-const maxSupply = new BN("1000000000000000000000000000");
 const b1m = new BN("1000000000000000000000000");
 const b1Token = new BN("1000000000000000000");
 
@@ -74,7 +68,6 @@ describe("Staking", function () {
         expect(await this.staking.connect(secondAccount).poolLength()).to.equal("1");
     });
 
-
     it('test basic staking happy path', async function () {
         await this.staking.connect(initialHolder).add(20, this.token.address, false);
 
@@ -93,6 +86,35 @@ describe("Staking", function () {
                 .add(b1m.mul(new BN(10)))
                 // 1 TGT reward from another block automatically harvested
                 .add(b1Token)
+                .toString()
+        );
+    });
+
+    it('test staking with more than one deposit', async function () {
+        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+
+        let blockNumber1;
+        let blockNumber2;
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
+        blockNumber1 = await getBlockNumber();
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(9))
+                .toString());
+
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(3)).toString(), secondAccount.address);
+        blockNumber2 = await getBlockNumber();
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(6))
+                .add(b1Token.mul(new BN(blockNumber2-blockNumber1)))
+                .toString()
+        );
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(6)).toString(), secondAccount.address);
+        blockNumber2 = await getBlockNumber();
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            b1m.mul(new BN(0))
+                .add(b1Token.mul(new BN(blockNumber2-blockNumber1)))
                 .toString()
         );
     });
