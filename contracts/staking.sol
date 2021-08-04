@@ -159,16 +159,14 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
     // Update reward variables for all pools. Be careful of gas spending!
     function massUpdatePools() public {
-        uint256 length = poolInfo.length;
-        for (uint256 pid = 0; pid < length; ++pid) {
-            updatePool(pid);
+        for (uint256 i = 0; i < poolInfo.length; ++i) {
+            updatePool(i);
         }
     }
 
     function massUpdatePoolsByIds(uint256[] calldata pids) external {
-        uint256 length = pids.length;
-        for (uint256 pid = 0; pid < length; ++pid) {
-            updatePool(pid);
+        for (uint256 i = 0; i < pids.length; ++i) {
+            updatePool(pids[i]);
         }
     }
 
