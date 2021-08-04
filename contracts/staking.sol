@@ -145,7 +145,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @return pending token reward for a given user.
     function pendingRewards(uint256 _pid, address _user) external view returns (uint256) {
         PoolInfo memory pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
+        UserInfo memory user = userInfo[_pid][_user];
         uint256 accRewardPerShare = pool.accRewardPerShare;
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
@@ -290,7 +290,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
         if (amount > 0) {
             // Deposit skipping token transfer (as it already was)
-            PoolInfo storage pool = poolInfo[pid];
+            PoolInfo memory pool = poolInfo[pid];
             UserInfo storage user = userInfo[pid][to];
             updatePool(pid);
 
