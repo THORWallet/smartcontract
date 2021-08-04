@@ -14,8 +14,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "hardhat/console.sol";
-
 interface IERC677Receiver {
     function onTokenTransfer(address _sender, uint _value, bytes calldata _data) external;
 }
@@ -187,8 +185,6 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         pool.accRewardPerShare = pool.accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
         pool.lastRewardBlock = block.number;
 
-        console.log("accRewardPerShare", pool.accRewardPerShare);
-
         emit LogUpdatePool(pid, pool.lastRewardBlock, lpSupply, pool.accRewardPerShare);
     }
 
@@ -197,18 +193,13 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param amount LP token amount to deposit.
     /// @param to The receiver of `amount` deposit benefit.
     function deposit(uint256 pid, uint256 amount, address to) public nonReentrant {
-
-        console.log("block.number", block.number);
         updatePool(pid);
         PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
 
-        console.log("user.amount",user.amount);
-
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
         uint256 pendingReward = accumulatedReward - user.rewardDebt;
-        console.log("pendingReward", pendingReward);
 
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
@@ -220,7 +211,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         }
         user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
-    emit Deposit(msg.sender, pid, amount, to);
+        emit Deposit(msg.sender, pid, amount, to);
     }
 
     /// @notice Withdraw LP tokens from Staking.
@@ -246,7 +237,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         }
         user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
-    emit Withdraw(msg.sender, pid, amount, to);
+        emit Withdraw(msg.sender, pid, amount, to);
     }
 
     /// @notice Harvest proceeds for transaction sender to `to`.
