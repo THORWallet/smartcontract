@@ -139,6 +139,7 @@ describe("Staking", function () {
         await this.staking.connect(thirdAccount).deposit(0, b1m.mul(new BN(20)).toString(), thirdAccount.address);
         await this.staking.connect(thirdAccount).deposit(0, b1m.mul(new BN(30)).toString(), thirdAccount.address);
 
+        console.log("after third deposit")
         await this.staking.connect(secondAccount).harvest(0, secondAccount.address);
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(
             b1m.mul(new BN(5))
@@ -148,8 +149,7 @@ describe("Staking", function () {
                 .add(b1Token.mul(new BN(5)).div(new BN(5+20)))
                 // 1 reward sharing with 20 and 30
                 .add(b1Token.mul(new BN(5)).div(new BN(5+20+30)))
-
-                // todo find this rounding
+                // precision is at 10**12
                 .sub(new BN('4090909090909'))
                 .toString()
         );
@@ -157,13 +157,23 @@ describe("Staking", function () {
         await this.staking.connect(thirdAccount).harvest(0, thirdAccount.address);
         expect(await this.token.balanceOf(thirdAccount.address)).to.equal(
             b1m.mul(new BN(0))
-                // 1 reward sharing with the 20 deposit
+                // 1 reward sharing with the 5
                 .add(b1Token.mul(new BN(20)).div(new BN(5+20)))
-                // 2 rewards sharing with 20 and 30
+                // 2 rewards sharing with 5 with a bigger stake
                 .add(b1Token.mul(new BN(2*50)).div(new BN(5+20+30)))
-
-                // todo find this rounding
+                // precision is at 10**12
                 .sub(new BN("81818181818181"))
+                .toString()
+        );
+
+        // we withdraw to another account
+        await this.staking.connect(thirdAccount).withdraw(0, b1m.mul(new BN(25)).toString(), fourthAccount.address);
+        expect(await this.token.balanceOf(fourthAccount.address)).to.equal(
+            b1m.mul(new BN(25))
+                // 1 reward sharing with 5 and a bigger stake
+                .add(b1Token.mul(new BN(50)).div(new BN(5+20+30)))
+                // precision is at 10**12
+                .sub(new BN("40909090909090"))
                 .toString()
         );
     });
