@@ -200,7 +200,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
         console.log("block.number", block.number);
 
-        PoolInfo storage pool = poolInfo[pid];
+        PoolInfo memory pool = poolInfo[pid];
         UserInfo storage user = userInfo[pid][msg.sender];
         updatePool(pid);
 
@@ -290,7 +290,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
         if (amount > 0) {
             // Deposit skipping token transfer (as it already was)
-            PoolInfo storage pool = poolInfo[pid];
+            PoolInfo memory pool = poolInfo[pid];
             UserInfo storage user = userInfo[pid][to];
             updatePool(pid);
 
