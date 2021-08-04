@@ -11,7 +11,9 @@ let token = undefined;
 let vesting = undefined;
 let staking = undefined;
 let accounts = undefined;
+let [initialHolder, secondAccount, thirdAccount] = [];
 let liveTime = undefined;
+
 const initialSupply = new BN("750000000000000000000000000");
 const maxSupply = new BN("1000000000000000000000000000");
 const b1m = new BN("1000000000000000000000000");
@@ -30,7 +32,7 @@ describe("Staking", function () {
         this.vesting = await VST.deploy(this.token.address);
         await this.vesting.deployed();
 
-        const [initialHolder, secondAccount, thirdAccount] = this.accounts;
+        [initialHolder, secondAccount, thirdAccount] = this.accounts;
         const acc = [
             initialHolder.address,
             this.vesting.address,
@@ -59,10 +61,39 @@ describe("Staking", function () {
         const STK = await ethers.getContractFactory("Staking");
         this.staking = await STK.deploy(this.token.address, initialHolder.address, b1Token.toString());
         await this.staking.deployed();
+
+        // we need to approve the staking contract to spend money from the reserve
+        await this.token.connect(initialHolder).approve(this.staking.address, b1m.mul(new BN(400)).toString());
+    });
+
+    it('add pool', async function () {
+        expect(await this.staking.connect(secondAccount).poolLength()).to.equal("0");
+        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+        expect(await this.staking.connect(secondAccount).poolLength()).to.equal("1");
+        await expectRevert.unspecified(this.staking.connect(initialHolder).add(20, this.token.address, false));
+        expect(await this.staking.connect(secondAccount).poolLength()).to.equal("1");
     });
 
 
-    it('test staking happy path', async function () {
-      console.log("test")
+    it('test basic staking happy path', async function () {
+        await this.staking.connect(initialHolder).add(20, this.token.address, false);
+
+        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
+        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal("0");
+
+        await this.staking.connect(secondAccount).harvest(0, secondAccount.address);
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1Token.toString());
+
+        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
+        expect(await this.token.balanceOf(secondAccount.address)).to.equal(
+            // harvested before
+            b1Token
+                // withdraw 10mio
+                .add(b1m.mul(new BN(10)))
+                // 1 TGT reward from another block automatically harvested
+                .add(b1Token)
+                .toString()
+        );
     });
 });
