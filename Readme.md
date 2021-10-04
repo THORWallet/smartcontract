@@ -27,6 +27,18 @@ of tokens that can be emitted is lowered according to the emitting function.
 * Symbol: TGT
 * Token Name: THORWallet Governance Token
 * Vesting for investors and team, with cliff and linear release of tokens
+* Contract addresses staking:
+  * STAKING_TESTNET_CONTRACT_1 = '0xf1C26043d920fE3459E0BFe9776AC42c448137f1';
+  * STAKING_TESTNET_CONTRACT_2 = '0xf6e5c60acb61c7ae7f2dde5b4d69889c9c52b387';
+  * STAKING_MAINNET_CONTRACT = '0x6d6f07425a37b7bb0fae70acd11b6b9314116249';
+* Contract addresses TGT:
+  * TGT_TESTNET_CONTRACT_1 = '0x73d6e26896981798526b6ead48d0fab76e205974';
+  * TGT_TESTNET_CONTRACT_2 = '0x108a850856db3f85d0269a2693d896b394c80325';
+  * TGT_MAINNET_CONTRACT = '0x108a850856Db3f85d0269a2693D896B394C80325';
+* Contract addresses Vesting:
+  * VESTING_TESTNET_CONTRACT_1 = '0x303df20dcfda5bc9b6871f5ce783535fecdc1129';
+  * VESTING_TESTNET_CONTRACT_2 = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
+  * VESTING_MAINNET_CONTRACT = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
 
 ## Installation and Running Tests
 
