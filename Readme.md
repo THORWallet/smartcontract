@@ -39,6 +39,7 @@ of tokens that can be emitted is lowered according to the emitting function.
   * VESTING_TESTNET_CONTRACT_1 = '0x303df20dcfda5bc9b6871f5ce783535fecdc1129';
   * VESTING_TESTNET_CONTRACT_2 = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
   * VESTING_MAINNET_CONTRACT = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
+* live date in TGT contract: 1628165847
 
 ## Installation and Running Tests
 
@@ -48,5 +49,3 @@ Run the following commands on the freshly cloned repository:
 npm install
 npm test
 ```
-
-Testing is wip...
