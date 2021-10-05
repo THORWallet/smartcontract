@@ -40,6 +40,7 @@ of tokens that can be emitted is lowered according to the emitting function.
   * VESTING_TESTNET_CONTRACT_2 = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
   * VESTING_MAINNET_CONTRACT = '0x68dd83dfaad47fbb804aeb96034220c7a4d28ee5';
 * live date in TGT contract: 1628165847
+* NFT contract: '0x53D917d66EcFec3eF379434b0Ad481E4DdEDcF66'
 
 ## Installation and Running Tests
 
