@@ -1,3 +1,4 @@
+const {ethers, network} = require('hardhat')
 
 const setBlockTimestampInSeconds = (startTime, seconds) => {
     return ethers.provider.send('evm_setNextBlockTimestamp', [startTime.toNumber() + seconds]);

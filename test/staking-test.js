@@ -1,6 +1,6 @@
 const {BN, expectRevert} = require('@openzeppelin/test-helpers');
 const {expect} = require("chai");
-const hre = require("hardhat");
+const {network, ethers} = require("hardhat");
 const {getBlockNumber, mintNewBlock} = require("./utils/minting-blocks");
 
 let token = undefined;
@@ -13,12 +13,12 @@ let liveTime = undefined;
 const b1m = new BN("1000000000000000000000000");
 const b1Token = new BN("1000000000000000000");
 
+// Requires evm_setAutomine=TRUE
 describe("Staking", function () {
-
     beforeEach("deploy contracts and mint and vest", async function () {
-        await network.provider.send("evm_setAutomine", [true]);
 
-        this.accounts = await hre.ethers.getSigners();
+        this.accounts = await ethers.getSigners();
+
 
         const TGT = await ethers.getContractFactory("TGT");
         this.token = await TGT.deploy();
@@ -61,6 +61,10 @@ describe("Staking", function () {
         // we need to approve the staking contract to spend money from the reserve
         await this.token.connect(initialHolder).approve(this.staking.address, b1m.mul(new BN(400)).toString());
     });
+
+    afterEach("After", async function (){
+        await network.provider.send("evm_setAutomine", [true]);
+    })
 
     it('add pool', async function () {
         expect(await this.staking.connect(secondAccount).poolLength()).to.equal("0");
