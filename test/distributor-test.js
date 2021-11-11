@@ -33,7 +33,7 @@ describe("Distributor", function () {
         this.token = await TGT.deploy();
         await this.token.deployed();
 
-        const Distributor = await ethers.getContractFactory("Distributor");
+        const Distributor = await hre.ethers.getContractFactory("Distributor");
         this.distributor = await Distributor.deploy(this.token.address, this.initialHolder.address, "0x0000000000000000000000000000000000000000000000000000000000000000" );
         await this.distributor.deployed();
 
@@ -111,6 +111,45 @@ describe("Distributor", function () {
         expect(await this.distributor.amountClaimed(secondAccount.address)).to.equal(amount);
         const balance = await this.token.balanceOf(secondAccount.address)
         expect(balance.toString()).to.equal(toTGTDecimals(amount).toString());
+    });
+
+    it('Should be able to claim again after merkle root update', async function () {
+        const [,,thirdAccount] = this.accounts;
+        const merkleLeaves = rewards.map((data) => hash(
+            hre.ethers.utils.solidityPack(["address", "uint32"], [data.address, data.amount]),
+        ));
+        const merkleTree = new MerkleTree(merkleLeaves, hash, {sortPairs: true});
+        const root =  merkleTree.getRoot().toString('hex')
+
+        const {address, amount} = rewards[2]
+        const proof = merkleTree.getProof(hash(
+            hre.ethers.utils.solidityPack(["address", "uint32"], [address, amount]),
+        )).map((p) => '0x' + p.data.toString('hex'));
+        await this.distributor.updateMerkleRoot("0x" + root)
+
+
+        await this.distributor.connect(thirdAccount).claim(address, amount, proof)
+        expect(await this.distributor.amountClaimed(thirdAccount.address)).to.equal(amount);
+        const balance = await this.token.balanceOf(thirdAccount.address)
+        expect(balance.toString()).to.equal(toTGTDecimals(amount).toString());
+
+        // increase reward for third address
+        const modifiedRewards = rewards.map(({address: addr, amount:amnt}) => addr === address? {address: addr, amount: amnt+100}: {address: addr, amount: amnt})
+        const {amount: amountUpdated} = modifiedRewards[2]
+        const merkleLeavesUpdated = modifiedRewards.map((data) => hash(
+            hre.ethers.utils.solidityPack(["address", "uint32"], [data.address, data.amount]),
+        ));
+        const merkleTreeUpdated = new MerkleTree(merkleLeavesUpdated, hash, {sortPairs: true});
+        const rootUpdated =  merkleTreeUpdated.getRoot().toString('hex')
+        await this.distributor.updateMerkleRoot("0x" + rootUpdated)
+        const proofUpdated = merkleTreeUpdated.getProof(hash(
+            hre.ethers.utils.solidityPack(["address", "uint32"], [address, amountUpdated]),
+        )).map((p) => '0x' + p.data.toString('hex'));
+
+        await this.distributor.connect(thirdAccount).claim(address, amountUpdated, proofUpdated)
+        expect(await this.distributor.amountClaimed(thirdAccount.address)).to.equal(amountUpdated);
+        const balanceUpdated = await this.token.balanceOf(thirdAccount.address)
+        expect(balanceUpdated.toString()).to.equal(toTGTDecimals(amountUpdated).toString());
     });
 
     it('Should not be able to claim higher amount than available', async function () {
