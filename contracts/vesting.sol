@@ -26,11 +26,9 @@ contract Vesting {
         uint64 vestingDuration;
         //how much vested funds were already claimed
         uint96 vestingClaimed;
-        //the unvested amount, up to this value, no vesting is required
-        uint96 unvested;
     }
 
-    event Vested(address indexed account, uint96 amount, uint96 unvestedAmount, uint64 vestingDuration);
+    event Vested(address indexed account, uint96 amount, uint64 vestingDuration);
 
     modifier onlyOwner(){
         require(msg.sender == _owner, "Vesting: not the owner");
@@ -49,25 +47,24 @@ contract Vesting {
         _owner = newOwner;
     }
 
-    function vest(address[] calldata accounts, uint96[] calldata amounts, uint96[] calldata unvestedAmounts,
+    function vest(address[] calldata accounts, uint96[] calldata amounts,
                   uint64[] calldata vestingDurations) public virtual onlyOwner {
         require(accounts.length == amounts.length, "Vesting: accounts and amounts length must match");
-        require(amounts.length == unvestedAmounts.length, "Vesting: amounts and unvestedAmounts length must match");
-        require(unvestedAmounts.length == vestingDurations.length, "Vesting: unvestedAmounts and vestingDurations length must match");
+        require(amounts.length == vestingDurations.length, "Vesting: amounts and vestingDurations length must match");
 
         for(uint256 i=0;i<accounts.length;i++) {
             _vestedBalance += amounts[i];
             //only vest those accounts that are not yet vested. We dont want to merge vestings
             if(_vesting[accounts[i]].vestingAmount == 0) {
-                _vesting[accounts[i]] = VestingParams(amounts[i] - unvestedAmounts[i], vestingDurations[i], 0, unvestedAmounts[i]);
-                emit Vested(accounts[i], amounts[i], unvestedAmounts[i], vestingDurations[i]);
+                _vesting[accounts[i]] = VestingParams(amounts[i], vestingDurations[i], 0);
+                emit Vested(accounts[i], amounts[i], vestingDurations[i]);
             }
         }
         require(_vestedBalance <= _tgtContract.balanceOf(address(this)), "Vesting: not enough tokens in this contract for vesting");
     }
 
     function canClaim(address vested) public view virtual returns (uint256) {
-        if(block.timestamp <= _tgtContract.live()) {
+        if(block.timestamp <= _tgtContract.live() || _tgtContract.live() == 0) {
             return 0;
         }
         VestingParams memory v = _vesting[vested];
@@ -77,15 +74,14 @@ contract Vesting {
     function claimableAmount(VestingParams memory v) internal view virtual returns (uint256) {
         uint256 currentDuration = block.timestamp - _tgtContract.live();
 
-        uint256 timeUnlocked = 0;
+        uint256 unlockedFunds = 0;
         if(v.vestingDuration < currentDuration) {
             //we can give all of it, vesting time passed, otherwise we see a div by zero
-            timeUnlocked = v.vestingAmount;
+            unlockedFunds = v.vestingAmount;
         } else {
-            uint256 vestingFactor = v.vestingDuration / currentDuration;
-            timeUnlocked = v.vestingAmount / vestingFactor;
+            unlockedFunds = v.vestingAmount * currentDuration / v.vestingDuration;
         }
-        return (v.unvested + timeUnlocked) - v.vestingClaimed;
+        return unlockedFunds - v.vestingClaimed;
     }
 
     function vestedBalance() public view virtual returns (uint256) {
@@ -94,7 +90,7 @@ contract Vesting {
 
     function vestedBalanceOf(address vested) public view virtual returns (uint256) {
         VestingParams memory v = _vesting[vested];
-        return v.unvested + v.vestingAmount - v.vestingClaimed;
+        return v.vestingAmount - v.vestingClaimed;
     }
 
     function claim(address to, uint96 amount) public virtual {
