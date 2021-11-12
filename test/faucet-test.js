@@ -35,7 +35,7 @@ describe("TGT", function () {
     });
 
     it('Faucet spender not approved', async function () {
-        await expectRevert.unspecified(this.faucet.connect(this.accounts[1]).claim(), "TGT: not the owner");
+        await expectRevert.unspecified(this.faucet.connect(this.accounts[1]).claim(), "ERC20: transfer amount exceeds allowance");
     });
 
     it('Approve faucet spender', async function () {
@@ -52,7 +52,7 @@ describe("TGT", function () {
     it('Faucet spender approved twice does not work', async function () {
         await this.token.approve(this.faucet.address, ETH2.toString());
         await this.faucet.connect(this.accounts[1]).claim();
-        await expectRevert.unspecified(this.faucet.connect(this.accounts[1]).claim(), "TGT: not the owner");
+        await expectRevert.unspecified(this.faucet.connect(this.accounts[1]).claim(), "Same address cannot claim twice");
     });
 
     it('Other spender approved', async function () {
@@ -66,6 +66,6 @@ describe("TGT", function () {
         await this.token.approve(this.faucet.address, ETH2.toString());
         await this.faucet.connect(this.accounts[1]).claim();
         await this.faucet.connect(this.accounts[2]).claim();
-        await expectRevert.unspecified(this.faucet.connect(this.accounts[3]).claim(), "TGT: not the owner");
+        await expectRevert.unspecified(this.faucet.connect(this.accounts[3]).claim(), "ERC20: transfer amount exceeds allowance");
     });
 });
