@@ -1,6 +1,6 @@
 const {BN, expectRevert} = require('@openzeppelin/test-helpers');
 const {expect} = require("chai");
-const hre = require("hardhat");
+const {ethers} = require("hardhat");
 const {setBlockTimestampInSeconds, setBlockTimestampInMonth, setBlockTimestampInMonthAndSeconds, mintNewBlock} = require("./utils/minting-blocks");
 
 //from: https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/test/token/ERC20
@@ -24,7 +24,7 @@ describe("TGT", function () {
         this.vesting = await VST.deploy(this.token.address);
         await this.vesting.deployed();
 
-        this.accounts = await hre.ethers.getSigners();
+        this.accounts = await ethers.getSigners();
     });
 
     it('has a name', async function () {

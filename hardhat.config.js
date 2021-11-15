@@ -20,7 +20,7 @@ module.exports = {
     hardhat: {
       blockGasLimit: 10000000,
       mining: {
-        auto: true,
+        auto: true, // required to be able to run tests correctly
         interval: 0
       }
     }
