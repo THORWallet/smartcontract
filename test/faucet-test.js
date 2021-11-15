@@ -10,7 +10,7 @@ const INIT_SUPPLY = new BN("750000000000000000000000000");
 const ETH1 = new BN("1000000000000000000");
 const ETH2 = new BN("2000000000000000000");
 
-describe("TGT", function () {
+describe("Faucet Test", function () {
 
     beforeEach("Setup TGT and Faucet contracts", async function () {
         this.accounts = await hre.ethers.getSigners();
