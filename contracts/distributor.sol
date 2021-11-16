@@ -54,14 +54,15 @@ contract Distributor {
 
 
     function claim(address account, uint32 amount, bytes32[] calldata merkleProof) external {
-        require(amountClaimed(account) < amount, 'Distributor: no more TGT to claim.');
+        uint32 amountClaimed = amountClaimed(account);
+        require(amountClaimed < amount, 'Distributor: no more TGT to claim.');
 
         // Verify the merkle proof.
         bytes32 node = keccak256(abi.encodePacked(account, amount));
         require(MerkleProof.verify(merkleProof, merkleRoot, node), 'Distributor: Invalid proof.');
 
         // amount to be transferred
-        uint256 diff = uint256(amount - amountClaimed(account)) * (10**18);
+        uint256 diff = uint256(amount - amountClaimed) * (10**18);
 
         // Mark it claimed and send the token.
         amountClaimedMap[account] = amount;
