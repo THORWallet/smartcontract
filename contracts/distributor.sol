@@ -37,6 +37,7 @@ contract Distributor {
         require(newOwner != address(this), "Distributor: transfer owner to this contract");
         owner = newOwner;
     }
+
     // Note: The claimed amounts in the SC are stored without decimals to reduce gas costs.
     // This implies that 1 in the amountClaimedMap = 10**18 TGT
     function amountClaimed(address account) public view returns (uint32) {
