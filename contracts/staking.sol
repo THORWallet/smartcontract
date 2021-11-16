@@ -273,22 +273,4 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
     }
-
-    function onTokenTransfer(address to, uint amount, bytes calldata _data) external override {
-        uint pid = 0;
-        require(msg.sender == address(rewardToken), "onTokenTransfer: can only be called by rewardToken");
-        require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
-        if (amount > 0) {
-            // Deposit skipping token transfer (as it already was)
-            updatePool(pid);
-            PoolInfo memory pool = poolInfo[pid];
-            UserInfo storage user = userInfo[pid][to];
-
-            // Effects
-            user.amount = user.amount + amount;
-            user.rewardDebt = user.rewardDebt + (amount * pool.accRewardPerShare) / ACC_PRECISION;
-
-            emit Deposit(msg.sender, pid, amount, to);
-        }
-    }
 }
