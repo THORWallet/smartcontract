@@ -14,11 +14,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-interface IERC677Receiver {
-    function onTokenTransfer(address _sender, uint _value, bytes calldata _data) external;
-}
-
-contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
+contract Staking is Ownable, Multicall, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Info of each Staking user.

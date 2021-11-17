@@ -37,15 +37,14 @@ describe("Airdrop Test", function () {
 
     it('Send to one address', async function () {
         console.log(this.accounts[1].address);
-        await this.token.approve(this.accounts[0].address, ETH1.toString());
-        await this.token.transferFromAndCall(this.accounts[0].address, this.airdrop.address, ETH1.toString(), this.accounts[1].address);
+        await this.token.transfer(this.airdrop.address, ETH1.toString());
+        await this.airdrop.batchTransferDirect(this.token.address, [this.accounts[1].address], ETH1.toString());
         expect(await this.token.balanceOf(this.accounts[1].address)).to.equal(ETH1.toString());
     });
 
     it('Send to 2 addresses', async function () {
-        let to = this.accounts[1].address + this.accounts[2].address.substring(2);
-        await this.token.approve(this.accounts[0].address, ETH2.toString());
-        await this.token.transferFromAndCall(this.accounts[0].address, this.airdrop.address, ETH2.toString(), to);
+        await this.token.transfer(this.airdrop.address, ETH2.toString());
+        await this.airdrop.batchTransferDirect(this.token.address, [this.accounts[1].address, this.accounts[2].address], ETH1.toString());
         expect(await this.token.balanceOf(this.accounts[1].address)).to.equal(ETH1.toString());
         expect(await this.token.balanceOf(this.accounts[2].address)).to.equal(ETH1.toString());
     });
