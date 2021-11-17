@@ -14,10 +14,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-interface IERC677Receiver {
-    function onTokenTransfer(address _sender, uint _value, bytes calldata _data) external;
-}
-
 contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -272,23 +268,5 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         pool.lpToken.safeTransfer(to, amount);
 
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
-    }
-
-    function onTokenTransfer(address to, uint amount, bytes calldata _data) external override {
-        uint pid = 0;
-        require(msg.sender == address(rewardToken), "onTokenTransfer: can only be called by rewardToken");
-        require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
-        if (amount > 0) {
-            // Deposit skipping token transfer (as it already was)
-            updatePool(pid);
-            PoolInfo memory pool = poolInfo[pid];
-            UserInfo storage user = userInfo[pid][to];
-
-            // Effects
-            user.amount = user.amount + amount;
-            user.rewardDebt = user.rewardDebt + (amount * pool.accRewardPerShare) / ACC_PRECISION;
-
-            emit Deposit(msg.sender, pid, amount, to);
-        }
     }
 }
