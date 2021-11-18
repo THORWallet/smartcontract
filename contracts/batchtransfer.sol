@@ -3,11 +3,11 @@ pragma solidity 0.8.10;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IERC677Receiver {
-    function onTokenTransfer(address sender, uint256 value, bytes memory data) external;
-}
-//**************** Testing
-contract Airdrop {
+//interface IERC677Receiver {
+//    function onTokenTransfer(address sender, uint256 value, bytes memory data) external;
+//}
+
+contract BatchTransfer {
 
     address private owner;
     constructor() {
@@ -15,10 +15,10 @@ contract Airdrop {
     }
 
     //gas cost for 50 fresh addresses: 1416965 gas
-    function batchTransferDirect(IERC20 _tgtContract, address[] calldata _to, uint256 _value) external {
+    function batchTransferDirect(IERC20 _erc20Contract, address[] calldata _to, uint256 _value) external {
         require(msg.sender == owner, "not owner");
         for (uint i=0; i<_to.length; i++) {
-            _tgtContract.transfer(_to[i], _value);
+            _erc20Contract.transfer(_to[i], _value);
         }
     }
 
