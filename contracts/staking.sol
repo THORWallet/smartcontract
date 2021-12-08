@@ -19,10 +19,10 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
 
     /// @notice Info of each Staking user.
     /// `amount` LP token amount the user has provided.
-    /// `rewardDebt` The amount of token entitled to the user.
+    /// `rewardOffset` The amount of token which needs to be subtracted at the next harvesting event.
     struct UserInfo {
         uint256 amount;
-        uint256 rewardDebt;
+        uint256 rewardOffset;
     }
 
     /// @notice Info of each Staking pool.
@@ -38,13 +38,13 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
 
     // The amount of rewardTokens entitled to a user but is pending to be distributed is:
     //
-    //   pending reward = (user.amount * pool.accRewardPerShare) - user.rewardDebt
+    //   pending reward = (user.amount * pool.accRewardPerShare) - user.rewardOffset
     //
     // Whenever a user deposits or withdraws LP tokens to a pool. Here's what happens:
     //   1. The pool's `accRewardPerShare` (and `lastRewardBlock`) gets updated.
     //   2. User receives the pending reward sent to his/her address.
     //   3. User's `amount` gets updated.
-    //   4. User's `rewardDebt` gets updated.
+    //   4. User's `rewardOffset` gets updated.
 
     /// @notice Address of token contract.
     IERC20 public rewardToken;
@@ -148,7 +148,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
             accRewardPerShare = accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
         }
         uint256 accumulatedReward = (user.amount * accRewardPerShare) / ACC_PRECISION;
-        return accumulatedReward - user.rewardDebt;
+        return accumulatedReward - user.rewardOffset;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -195,7 +195,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
 
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
 
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
@@ -205,7 +205,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), amount);
             user.amount = user.amount + amount;
         }
-        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
+        user.rewardOffset = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
         emit Deposit(msg.sender, pid, amount, to);
     }
@@ -222,7 +222,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
 
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
@@ -231,7 +231,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
             user.amount = user.amount - amount;
             pool.lpToken.safeTransfer(to, amount);
         }
-        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
+        user.rewardOffset = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
         emit Withdraw(msg.sender, pid, amount, to);
     }
@@ -245,8 +245,8 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
         UserInfo storage user = userInfo[pid][msg.sender];
 
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
-        user.rewardDebt = accumulatedReward;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
+        user.rewardOffset = accumulatedReward;
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
@@ -264,7 +264,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
         uint256 amount = user.amount;
 
         user.amount = 0;
-        user.rewardDebt = 0;
+        user.rewardOffset = 0;
         pool.lpToken.safeTransfer(to, amount);
 
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
