@@ -44,14 +44,13 @@ contract Distributor {
         return amountClaimedMap[account];
     }
 
-    function claimableAmount(address account, uint32 amount, bytes32[] calldata merkleProof) public view returns (uint32) {
+    function claimableAmount(address account, uint32 amount, bytes32[] calldata merkleProof) external view returns (uint32) {
         // Verify the merkle proof.
         bytes32 node = keccak256(abi.encodePacked(account, amount));
         require(MerkleProof.verify(merkleProof, merkleRoot, node), 'Distributor: Invalid proof.');
 
         return amount - amountClaimed(account);
     }
-
 
     function claim(address account, uint32 amount, bytes32[] calldata merkleProof) external {
         uint32 amountClaimed = amountClaimed(account);
