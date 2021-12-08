@@ -17,6 +17,7 @@
     "mem": ">=4.0.0"
   },
   "scripts": {
+    "clean": "hardhat clean",
     "build": "hardhat compile",
     "test": "hardhat test"
   }
