@@ -103,7 +103,7 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
     /// @param _allocPoint AP of the new pool.
     /// @param _lpToken Address of the LP ERC-20 token.
     function addPool(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
-        require(poolExistence[_lpToken] == false, "Staking: duplicated pool");
+        require(!poolExistence[_lpToken], "Staking: duplicated pool");
         if (_withUpdate) {
             massUpdatePools();
         }
