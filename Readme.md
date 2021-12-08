@@ -1,5 +1,11 @@
 # TGT Contracts
 
+## Audits
+
+* [TGT Contract & Vesting Contract Audit by 21Analytics](https://github.com/THORWallet/smartcontract/blob/5669e8605c2456625bb4da6d094cf8d473a35eb7/audits/THORWallet_audit_report.pdf)
+
+## THORWallet Governance Token (TGT) Contract
+
 The contract is an ERC20 contract with the following additions:
 
 * [ERC20 Permit](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/draft-IERC20Permit.sol)
