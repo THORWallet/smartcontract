@@ -57,6 +57,6 @@ of tokens that can be emitted is lowered according to the emitting function.
 Run the following commands on the freshly cloned repository:
 
 ```
-npm install
-npm test
+yarn
+yarn test
 ```
