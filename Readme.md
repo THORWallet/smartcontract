@@ -3,6 +3,7 @@
 ## Audits
 
 * [TGT Contract & Vesting Contract Audit by 21Analytics](audits/THORWallet_audit_report.pdf)
+* [Staking Contract & Distributor Contract Audit by 21Analytics](audits/THORWallet_Staking_Distributor_audit_report.pdf)
 
 ## THORWallet Governance Token (TGT) Contract
 
