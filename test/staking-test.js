@@ -242,7 +242,7 @@ describe("Staking", function () {
         expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10)).toString());
     });
 
-    it('test withdraw in same blocks 1', async function () {
+    it('test withdraw in same blocks', async function () {
         await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
 
         await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
@@ -252,22 +252,6 @@ describe("Staking", function () {
         await network.provider.send("evm_setAutomine", [false]);
         await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
         await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
-        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
-        await mintNewBlock();
-
-        expect(await this.token.balanceOf(secondAccount.address)).to.equal(b1m.mul(new BN(10)).add(b1Token).toString());
-    });
-
-    it('test withdraw in same blocks 2', async function () {
-        await this.staking.connect(initialHolder).addPool(20, this.token.address, false);
-
-        await this.token.connect(secondAccount).approve(this.staking.address, b1m.mul(new BN(10)).toString());
-
-        await this.staking.connect(secondAccount).deposit(0, b1m.mul(new BN(10)).toString(), secondAccount.address);
-
-        await network.provider.send("evm_setAutomine", [false]);
-        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(8)).toString(), secondAccount.address);
-        await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
         await this.staking.connect(secondAccount).withdraw(0, b1m.mul(new BN(1)).toString(), secondAccount.address);
         await mintNewBlock();
 
