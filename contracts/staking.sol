@@ -246,10 +246,10 @@ contract Staking is Ownable, Multicall, ReentrancyGuard {
 
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
         uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        user.rewardDebt = accumulatedReward;
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
-        user.rewardDebt = accumulatedReward;
 
         emit Harvest(msg.sender, pid, pendingReward);
     }
