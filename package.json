@@ -16,6 +16,7 @@
     "merkletreejs": "^0.2.24"
   },
   "scripts": {
+    "build": "hardhat compile",
     "test": "hardhat test"
   }
 }
