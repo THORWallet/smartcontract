@@ -19,5 +19,9 @@
     "clean": "hardhat clean",
     "build": "hardhat compile",
     "test": "hardhat test"
+  },
+  "resolutions": {
+    "glob-parent": "^5.1.2",
+    "lodash": "^4.17.21"
   }
 }
