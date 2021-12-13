@@ -8,25 +8,21 @@
 
 pragma solidity ^0.8.4;
 
-import "./IERC20.sol";
-import "./SafeERC20.sol";
-import "./Ownable.sol";
-import "./Multicall.sol";
-import "./ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Multicall.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-interface IERC677Receiver {
-    function onTokenTransfer(address _sender, uint _value, bytes calldata _data) external;
-}
-
-contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
+contract Staking is Ownable, Multicall, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Info of each Staking user.
     /// `amount` LP token amount the user has provided.
-    /// `rewardDebt` The amount of token entitled to the user.
+    /// `rewardOffset` The amount of token which needs to be subtracted at the next harvesting event.
     struct UserInfo {
         uint256 amount;
-        uint256 rewardDebt;
+        uint256 rewardOffset;
     }
 
     /// @notice Info of each Staking pool.
@@ -42,13 +38,13 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
     // The amount of rewardTokens entitled to a user but is pending to be distributed is:
     //
-    //   pending reward = (user.amount * pool.accRewardPerShare) - user.rewardDebt
+    //   pending reward = (user.amount * pool.accRewardPerShare) - user.rewardOffset
     //
     // Whenever a user deposits or withdraws LP tokens to a pool. Here's what happens:
     //   1. The pool's `accRewardPerShare` (and `lastRewardBlock`) gets updated.
     //   2. User receives the pending reward sent to his/her address.
     //   3. User's `amount` gets updated.
-    //   4. User's `rewardDebt` gets updated.
+    //   4. User's `rewardOffset` gets updated.
 
     /// @notice Address of token contract.
     IERC20 public rewardToken;
@@ -107,7 +103,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
     /// @param _allocPoint AP of the new pool.
     /// @param _lpToken Address of the LP ERC-20 token.
     function addPool(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
-        require(poolExistence[_lpToken] == false, "Staking: duplicated pool");
+        require(!poolExistence[_lpToken], "Staking: duplicated pool");
         if (_withUpdate) {
             massUpdatePools();
         }
@@ -152,7 +148,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
             accRewardPerShare = accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
         }
         uint256 accumulatedReward = (user.amount * accRewardPerShare) / ACC_PRECISION;
-        return accumulatedReward - user.rewardDebt;
+        return accumulatedReward - user.rewardOffset;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
@@ -199,7 +195,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
 
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
@@ -209,7 +205,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), amount);
             user.amount = user.amount + amount;
         }
-        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
+        user.rewardOffset = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
         emit Deposit(msg.sender, pid, amount, to);
     }
@@ -226,7 +222,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
 
         // harvest
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
@@ -235,7 +231,7 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
             user.amount = user.amount - amount;
             pool.lpToken.safeTransfer(to, amount);
         }
-        user.rewardDebt = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
+        user.rewardOffset = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
 
         emit Withdraw(msg.sender, pid, amount, to);
     }
@@ -249,11 +245,11 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         UserInfo storage user = userInfo[pid][msg.sender];
 
         uint256 accumulatedReward = (user.amount * pool.accRewardPerShare) / ACC_PRECISION;
-        uint256 pendingReward = accumulatedReward - user.rewardDebt;
+        uint256 pendingReward = accumulatedReward - user.rewardOffset;
+        user.rewardOffset = accumulatedReward;
         if (pendingReward > 0) {
             rewardToken.safeTransferFrom(rewardOwner, to, pendingReward);
         }
-        user.rewardDebt = accumulatedReward;
 
         emit Harvest(msg.sender, pid, pendingReward);
     }
@@ -268,27 +264,9 @@ contract Staking is Ownable, Multicall, IERC677Receiver, ReentrancyGuard {
         uint256 amount = user.amount;
 
         user.amount = 0;
-        user.rewardDebt = 0;
+        user.rewardOffset = 0;
         pool.lpToken.safeTransfer(to, amount);
 
         emit EmergencyWithdraw(msg.sender, pid, amount, to);
-    }
-
-    function onTokenTransfer(address to, uint amount, bytes calldata _data) external override {
-        uint pid = 0;
-        require(msg.sender == address(rewardToken), "onTokenTransfer: can only be called by rewardToken");
-        require(msg.sender == address(poolInfo[pid].lpToken), "onTokenTransfer: pool 0 needs to be a rewardToken pool");
-        if (amount > 0) {
-            // Deposit skipping token transfer (as it already was)
-            updatePool(pid);
-            PoolInfo memory pool = poolInfo[pid];
-            UserInfo storage user = userInfo[pid][to];
-
-            // Effects
-            user.amount = user.amount + amount;
-            user.rewardDebt = user.rewardDebt + (amount * pool.accRewardPerShare) / ACC_PRECISION;
-
-            emit Deposit(msg.sender, pid, amount, to);
-        }
     }
 }
