@@ -53,9 +53,9 @@ contract Vesting {
         require(amounts.length == vestingDurations.length, "Vesting: amounts and vestingDurations length must match");
 
         for(uint256 i=0;i<accounts.length;i++) {
-            _vestedBalance += amounts[i];
             //only vest those accounts that are not yet vested. We dont want to merge vestings
             if(_vesting[accounts[i]].vestingAmount == 0) {
+                _vestedBalance += amounts[i];
                 _vesting[accounts[i]] = VestingParams(amounts[i], vestingDurations[i], 0);
                 emit Vested(accounts[i], amounts[i], vestingDurations[i]);
             }
