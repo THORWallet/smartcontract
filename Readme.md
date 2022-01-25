@@ -54,6 +54,7 @@ of tokens that can be emitted is lowered according to the emitting function.
   * FAUCET_MAINNET = '0x57b0391d98A3c2B338D7025acaC869E96C996903'; (initialized with: 0x108a850856Db3f85d0269a2693D896B394C80325, 0x69102B434be1D245961E7a1114b6e49a2d1283f2, 1000000000000000000)
 * live date in TGT contract: 1628165847
 * NFT contract: '0x53D917d66EcFec3eF379434b0Ad481E4DdEDcF66'
+  * NFT_TESTNET = '0xB7ca508c83defd59eEc051003Ba1A97dDFF36b66'  
 
 ## Installation and Running Tests
 
