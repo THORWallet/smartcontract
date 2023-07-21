@@ -60,7 +60,7 @@ describe("Staking", function () {
 
         // we need to approve the staking contract to spend money from the reserve
         await this.token.connect(initialHolder).approve(this.staking.address, b1m.mul(new BN(400)).toString());
-    });
+    });0
 
     afterEach("After", async function (){
         await network.provider.send("evm_setAutomine", [true]);
