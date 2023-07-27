@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "hardhat/console.sol";
 
 contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -88,7 +89,7 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
     /// DO NOT add the same LP token more than once. Rewards will be messed up if you do.
     /// @param _allocPoint AP of the new pool.
     /// @param _lpToken Address of the LP ERC-20 token.
-    function setPool(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
+    function setPool(uint256 _allocPoint, IERC20 _lpToken) public onlyOwner {
         totalAllocPoint = totalAllocPoint + _allocPoint;
         lpToken = _lpToken;
         allocPoint = _allocPoint;
@@ -129,6 +130,9 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
 
     /// @notice Update reward variables of the given pool.
     function updatePool() public {
+        console.log("updatePool");
+        console.log("block.number", block.number);
+        console.log("lastRewardBlock", lastRewardBlock);
         if (block.number <= lastRewardBlock) {
             return;
         }
@@ -143,7 +147,7 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
             uint256 reward = (blocks * rewardInfo.rewardPerBlock * allocPoint) / totalAllocPoint;
             rewardInfo.accRewardPerShare = rewardInfo.accRewardPerShare + ((reward * ACC_PRECISION) / lpSupply);
             lastRewardBlock = block.number;
-
+            console.log("LogUpdatePool", lastRewardBlock, lpSupply, rewardInfo.accRewardPerShare);
             emit LogUpdatePool(lastRewardBlock, lpSupply, rewardInfo.accRewardPerShare);
         }
     }
@@ -164,12 +168,14 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
                 rewardToken.safeTransferFrom(rewards[i].rewardOwner, to, pendingReward);
             }
 
-            if (amount > 0) {
-                lpToken.safeTransferFrom(address(msg.sender), address(this), amount);
-                user.amount = user.amount + amount;
-            }
             user.rewardDebt[address(rewardToken)] = (user.amount * rewards[i].accRewardPerShare) / ACC_PRECISION;
         }
+
+        if (amount > 0) {
+            lpToken.safeTransferFrom(address(msg.sender), address(this), amount);
+            user.amount = user.amount + amount;
+        }
+
         emit Deposit(msg.sender, amount, to);
     }
 
@@ -189,12 +195,14 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
                 rewardToken.safeTransferFrom(rewards[i].rewardOwner, to, pendingReward);
             }
 
-            if (amount > 0) {
-                user.amount = user.amount - amount;
-                lpToken.safeTransfer(to, amount);
-            }
             user.rewardDebt[address(rewardToken)] = (user.amount * rewards[i].accRewardPerShare) / ACC_PRECISION;
         }
+
+        if (amount > 0) {
+            user.amount = user.amount - amount;
+            lpToken.safeTransfer(to, amount);
+        }
+
         emit Withdraw(msg.sender, amount, to);
     }
 
@@ -205,9 +213,13 @@ contract StakingV2 is Ownable, Multicall, ReentrancyGuard {
         UserInfo storage user = userInfo[msg.sender];
         for (uint256 i = 0; i < rewards.length; i++) {
             IERC20 rewardToken = rewards[i].rewardToken;
+            console.log("rewardToken: %s", address(rewardToken));
+            console.log("user.amount: %s", user.amount);
+            console.log("rewards[i].accRewardPerShare: %s", rewards[i].accRewardPerShare);
             uint256 accumulatedReward = (user.amount * rewards[i].accRewardPerShare) / ACC_PRECISION;
             uint256 pendingReward = accumulatedReward - user.rewardDebt[address(rewardToken)];
             user.rewardDebt[address(rewardToken)] = accumulatedReward;
+            console.log("pendingReward: %s", pendingReward);
             if (pendingReward > 0) {
                 rewardToken.safeTransferFrom(rewards[i].rewardOwner, to, pendingReward);
             }
