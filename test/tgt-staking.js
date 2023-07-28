@@ -23,7 +23,7 @@ describe.only("TGT Staking", function () {
         const rewardToken = await USDC.deploy();
         const tgt = await TGTFactory.deploy();
 
-        const accounts = [alice.address, bob.address, carol.address,dev.address, tgtMaker.address, penaltyCollector.address];
+        const accounts = [alice.address, bob.address, carol.address, dev.address, tgtMaker.address, penaltyCollector.address];
         const amounts = [ethers.utils.parseEther("1000"),
             ethers.utils.parseEther("1000"),
             ethers.utils.parseEther("1000"),
@@ -184,7 +184,8 @@ describe.only("TGT Staking", function () {
             expect(await rewardToken.balanceOf(tgtStaking.address)).to.be.equal(ethers.utils.parseEther("1"));
             expect(await tgtStaking.lastRewardBalance(rewardToken.address)).to.be.equal("0");
 
-            await increase(86400);
+            //increase to 7 days, as staking multiplier is 1x then.
+            await increase(86400 * 7);
             expect(await tgtStaking.pendingReward(alice.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("1"));
 
             // Making sure that `pendingReward` still return the accurate tokens even after updating pools
@@ -199,6 +200,7 @@ describe.only("TGT Staking", function () {
             await rewardToken
                 .connect(tgtMaker)
                 .transfer(tgtStaking.address, ethers.utils.parseEther("1"));
+
             await increase(86400);
 
             // Should be equal to 2, the previous reward and the new one
@@ -213,6 +215,62 @@ describe.only("TGT Staking", function () {
                     rewardToken.address
                 )
             ).to.be.equal(ethers.utils.parseEther("2"));
+        });
+
+        it("should return rewards with staking multiplier accordingly", async function () {
+            const {
+                tgtStaking,
+                tgt,
+                rewardToken,
+                alice,
+                tgtMaker
+            } = await loadFixture(
+                deployFixture,
+            );
+
+            await tgtStaking.connect(alice).deposit("1");
+
+            await rewardToken
+                .connect(tgtMaker)
+                .transfer(tgtStaking.address, ethers.utils.parseEther("1"));
+
+            expect(await rewardToken.balanceOf(tgtStaking.address)).to.be.equal(ethers.utils.parseEther("1"));
+            expect(await tgtStaking.lastRewardBalance(rewardToken.address)).to.be.equal("0");
+
+            //increase to 7 days, as staking multiplier is 1x then.
+            await increase(86400 * 7);
+            console.log("Staking multiplier is now: " + (await tgtStaking.getStakingMultiplier(alice.address)).toString());
+            expect(await tgtStaking.pendingReward(alice.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("1"));
+
+            // Making sure that `pendingReward` still return the accurate tokens even after updating pools
+            await tgtStaking.updateReward(rewardToken.address);
+            expect(
+                await tgtStaking.pendingReward(
+                    alice.address,
+                    rewardToken.address
+                )
+            ).to.be.equal(ethers.utils.parseEther("1"));
+
+
+            //increase to 6 months, as staking multiplier is 1.5x then.
+            await increase(86400 * 30 * 6);
+            console.log("Staking multiplier is now: " + (await tgtStaking.getStakingMultiplier(alice.address)).toString());
+            expect(await tgtStaking.pendingReward(alice.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("1.5"));
+
+            //increase to 1 year, as staking multiplier is 2x then.
+            await increase(86400 * 365);
+            console.log("Staking multiplier is now: " + (await tgtStaking.getStakingMultiplier(alice.address)).toString());
+            expect(await tgtStaking.pendingReward(alice.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("2"));
+
+            // Making sure that `pendingReward` still return the accurate tokens even after updating pools
+            await tgtStaking.updateReward(rewardToken.address);
+            expect(
+                await tgtStaking.pendingReward(
+                    alice.address,
+                    rewardToken.address
+                )
+            ).to.be.equal(ethers.utils.parseEther("2"));
+
         });
 
         it("should allow deposits and withdraws of multiple users and distribute rewards accordingly", async function () {
@@ -422,35 +480,20 @@ describe.only("TGT Staking", function () {
                 deployFixture,
             );
 
-            await tgtStaking
-                .connect(alice)
-                .deposit(ethers.utils.parseEther("300"));
-            expect(await tgt.balanceOf(alice.address)).to.be.equal(
-                ethers.utils.parseEther("700")
-            );
-            expect(
-                await tgt.balanceOf(tgtStaking.address)
-            ).to.be.equal(ethers.utils.parseEther("291"));
+            await tgtStaking.connect(alice).deposit(ethers.utils.parseEther("300"));
 
-            await rewardToken.mint(
-                tgtStaking.address,
-                ethers.utils.parseEther("100")
-            ); // We send 100 Tokens to sJoe's address
+            expect(await tgt.balanceOf(alice.address)).to.be.equal(ethers.utils.parseEther("700"));
+            expect(await tgt.balanceOf(tgtStaking.address)).to.be.equal(ethers.utils.parseEther("291"));
 
-            const pendingReward = await tgtStaking.pendingReward(
-                alice.address,
-                rewardToken.address
-            );
+            await rewardToken.mint(tgtStaking.address, ethers.utils.parseEther("100")); // We send 100 Tokens to sJoe's address
+
+            const pendingReward = await tgtStaking.pendingReward(alice.address, rewardToken.address);
+            console.log("pendingReward", pendingReward.toString());
+
             await tgtStaking.connect(alice).withdraw("0"); // Alice shouldn't receive any token of the last reward
-            expect(await tgt.balanceOf(alice.address)).to.be.equal(
-                ethers.utils.parseEther("700")
-            );
-            expect(await rewardToken.balanceOf(alice.address)).to.be.equal(
-                pendingReward
-            );
-            expect(
-                await tgt.balanceOf(tgtStaking.address)
-            ).to.be.equal(ethers.utils.parseEther("291"));
+            expect(await tgt.balanceOf(alice.address)).to.be.equal(ethers.utils.parseEther("700"));
+            expect(await rewardToken.balanceOf(alice.address)).to.be.equal(pendingReward);
+            expect(await tgt.balanceOf(tgtStaking.address)).to.be.equal(ethers.utils.parseEther("291"));
         });
 
         it("should allow rewards in TGT and USDC", async function () {

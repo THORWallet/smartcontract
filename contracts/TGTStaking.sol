@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+//import "hardhat/console.sol";
 
 /**
  * @title TGT Staking
@@ -138,10 +139,10 @@ contract TGTStaking is Ownable {
             updateReward(_token);
 
             uint256 _previousRewardDebt = user.rewardDebt[_token];
-            user.rewardDebt[_token] = getStakingMultiplier(_msgSender()) * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION;
+            user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
 
             if (_previousAmount != 0) {
-                uint256 _pending = getStakingMultiplier(_msgSender()) * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - _previousRewardDebt;
+                uint256 _pending = (getStakingMultiplier(_msgSender()) * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - _previousRewardDebt)) / 1e18;
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -242,7 +243,7 @@ contract TGTStaking is Ownable {
                 _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalZgt
             );
         }
-        return getStakingMultiplier(_user) * user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION - user.rewardDebt[_token];
+        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION - user.rewardDebt[_token])) / 1e18;
     }
 
     /**
@@ -355,12 +356,12 @@ contract TGTStaking is Ownable {
         }
         uint256 timeDiff = (block.timestamp - user.depositTimestamp);
         if (timeDiff > 365 days) {
-            return 2;
+            return 2e18;
         } else if (timeDiff > (30 days * 6) && timeDiff < 365 days) {
-            return (15e17 + (timeDiff / 365 days)) / 1e18;
+            return (15e17 + (timeDiff / 365 days));
         }
         else if (timeDiff > 7 days && timeDiff < (30 days * 6)) {
-            return (1e18 + (timeDiff / (30 days * 6))) / 1e18;
+            return (1e18 + (timeDiff / (30 days * 6)));
         }
         else if (timeDiff < 7 days && timeDiff > 0) {
             return 0;
