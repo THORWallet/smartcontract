@@ -43,7 +43,7 @@ contract TGTStaking is Ownable {
 
     /// @dev Internal balance of TGT, this gets updated on user deposits / withdrawals
     /// this allows to reward users with TGT
-    uint256 public internalZgtBalance;
+    uint256 public internalTgtBalance;
     /// @notice Array of tokens that users can claim
     IERC20[] public rewardTokens;
     mapping(IERC20 => bool) public isRewardToken;
@@ -142,7 +142,7 @@ contract TGTStaking is Ownable {
             user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
 
             if (_previousAmount != 0) {
-                uint256 _pending = (getStakingMultiplier(_msgSender()) * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - _previousRewardDebt)) / 1e18;
+                uint256 _pending = (getStakingMultiplier(_msgSender()) * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -150,7 +150,7 @@ contract TGTStaking is Ownable {
             }
         }
 
-        internalZgtBalance = internalZgtBalance + _amountMinusFee;
+        internalTgtBalance = internalTgtBalance + _amountMinusFee;
         tgt.safeTransferFrom(_msgSender(), feeCollector, _fee);
         tgt.safeTransferFrom(_msgSender(), address(this), _amountMinusFee);
         emit Deposit(_msgSender(), _amountMinusFee, _fee);
@@ -231,24 +231,24 @@ contract TGTStaking is Ownable {
     function pendingReward(address _user, IERC20 _token) external view returns (uint256) {
         require(isRewardToken[_token], "TGTStaking: wrong reward token");
         UserInfo storage user = userInfo[_user];
-        uint256 _totalZgt = internalZgtBalance;
+        uint256 _totalTgt = internalTgtBalance;
         uint256 _accRewardTokenPerShare = accRewardPerShare[_token];
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalZgt : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
 
-        if (_rewardBalance != lastRewardBalance[_token] && _totalZgt != 0) {
+        if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
             uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
-                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalZgt
+                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
             );
         }
-        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION - user.rewardDebt[_token])) / 1e18;
+        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
     }
 
     /**
-     * @notice Withdraw TGT and harvest the rewards
-     * @param _amount The amount of TGT to withdraw
+     * @notice To just harvest the rewards pass 0 as `_amount`, to harvest and withdraw pass the amount to withdraw
+     * @param _amount The amount of TGT to withdraw if any
      */
     function withdraw(uint256 _amount) external {
         UserInfo storage user = userInfo[_msgSender()];
@@ -256,7 +256,6 @@ contract TGTStaking is Ownable {
         require(_amount <= _previousAmount, "TGTStaking: withdraw amount exceeds balance");
         uint256 _newAmount = user.amount - _amount;
         user.amount = _newAmount;
-        user.depositTimestamp = 0;
 
         uint256 _len = rewardTokens.length;
         if (_previousAmount != 0) {
@@ -264,9 +263,9 @@ contract TGTStaking is Ownable {
                 IERC20 _token = rewardTokens[i];
                 updateReward(_token);
 
-                uint256 _pending = _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - user.rewardDebt[_token];
-                user.rewardDebt[_token] = _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION;
-
+                uint256 _pending = (getStakingMultiplier(_msgSender()) * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
+                user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18;
+//                console.log("pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -274,7 +273,11 @@ contract TGTStaking is Ownable {
             }
         }
 
-        internalZgtBalance = internalZgtBalance - _amount;
+        if (_amount > 0) {
+            user.depositTimestamp = 0;
+        }
+
+        internalTgtBalance = internalTgtBalance - _amount;
         tgt.safeTransfer(_msgSender(), _amount);
         emit Withdraw(_msgSender(), _amount);
     }
@@ -294,7 +297,7 @@ contract TGTStaking is Ownable {
             IERC20 _token = rewardTokens[i];
             user.rewardDebt[_token] = 0;
         }
-        internalZgtBalance = internalZgtBalance - _amount;
+        internalTgtBalance = internalTgtBalance - _amount;
         tgt.safeTransfer(_msgSender(), _amount);
         emit EmergencyWithdraw(_msgSender(), _amount);
     }
@@ -307,20 +310,20 @@ contract TGTStaking is Ownable {
     function updateReward(IERC20 _token) public {
         require(isRewardToken[_token], "TGTStaking: wrong reward token");
 
-        uint256 _totalZgt = internalZgtBalance;
+        uint256 _totalTgt = internalTgtBalance;
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalZgt : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
 
         // Did TGTStaking receive any token
-        if (_rewardBalance == lastRewardBalance[_token] || _totalZgt == 0) {
+        if (_rewardBalance == lastRewardBalance[_token] || _totalTgt == 0) {
             return;
         }
 
         uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
 
         accRewardPerShare[_token] = accRewardPerShare[_token] + (
-            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalZgt
+            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
         );
         lastRewardBalance[_token] = _rewardBalance;
     }
@@ -338,7 +341,7 @@ contract TGTStaking is Ownable {
         uint256 _amount
     ) internal {
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - internalZgtBalance : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - internalTgtBalance : _currRewardBalance;
 
         if (_amount > _rewardBalance) {
             lastRewardBalance[_token] = lastRewardBalance[_token] - _rewardBalance;
