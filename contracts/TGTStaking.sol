@@ -251,13 +251,13 @@ contract TGTStaking is Ownable {
         console.log("multiplierCoefficient", multiplierCoefficient);
 
         uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
-        console.log("_rewardBalance", _rewardBalance);
-        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
-        console.log("_totalTgt", _totalTgt);
+//        console.log("_rewardBalance", _rewardBalance);
+//        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
+//        console.log("_totalTgt", _totalTgt);
         if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
             uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
-            console.log("_accruedReward", _accruedReward);
-            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
+//            console.log("_accruedReward", _accruedReward);
+//            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
                 _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
@@ -306,6 +306,7 @@ contract TGTStaking is Ownable {
         }
         if (user.amount == 0) {
             totalDepositors = totalDepositors - 1;
+            delete depositors[user.index];
         }
 
         internalTgtBalance = internalTgtBalance - _amount;
@@ -341,10 +342,11 @@ contract TGTStaking is Ownable {
     function updateReward(IERC20 _token) public {
         require(isRewardToken[_token], "TGTStaking: wrong reward token");
 
-        uint256 _totalTgt = internalTgtBalance;
+        updateMultiplierCoefficient();
 
+        uint256 _totalTgt = internalTgtBalance;
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
 
         // Did TGTStaking receive any token
         if (_rewardBalance == lastRewardBalance[_token] || _totalTgt == 0) {
@@ -354,10 +356,10 @@ contract TGTStaking is Ownable {
 
         uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
         console.log("accRewardPerShare before update", accRewardPerShare[_token]);
-        console.log("_accruedReward", _accruedReward);
-        console.log("_totalTgt", _totalTgt);
+//        console.log("_accruedReward", _accruedReward);
+//        console.log("_totalTgt", _totalTgt);
         accRewardPerShare[_token] = accRewardPerShare[_token] + (
-            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
+            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
         );
         console.log("accRewardPerShare after update", accRewardPerShare[_token]);
         lastRewardBalance[_token] = _rewardBalance;

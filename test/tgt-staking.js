@@ -9,7 +9,6 @@ describe.only("TGT Staking", function () {
 
     async function deployFixture() {
         const TGTStaking = await ethers.getContractFactory("TGTStaking");
-        const TGTStakingV2 = await ethers.getContractFactory("TGTStakingV2");
         const TGTFactory = await ethers.getContractFactory("MockTGT");
         const USDC = await ethers.getContractFactory("USDC");
 
@@ -46,20 +45,9 @@ describe.only("TGT Staking", function () {
             ethers.utils.parseEther("0.03"),
         );
 
-        const tgtStakingV2 = await TGTStakingV2.deploy(
-            rewardToken.address,
-            tgt.address,
-            penaltyCollector.address,
-            ethers.utils.parseEther("0.03"),
-        );
-
         await tgt.connect(alice).approve(tgtStaking.address, ethers.utils.parseEther("100000"));
         await tgt.connect(bob).approve(tgtStaking.address, ethers.utils.parseEther("100000"));
         await tgt.connect(carol).approve(tgtStaking.address, ethers.utils.parseEther("100000"));
-
-        await tgt.connect(alice).approve(tgtStakingV2.address, ethers.utils.parseEther("100000"));
-        await tgt.connect(bob).approve(tgtStakingV2.address, ethers.utils.parseEther("100000"));
-        await tgt.connect(carol).approve(tgtStakingV2.address, ethers.utils.parseEther("100000"));
 
         return {
             tgtStaking,
@@ -71,8 +59,7 @@ describe.only("TGT Staking", function () {
             carol,
             tgtMaker,
             penaltyCollector,
-            USDC,
-            tgtStakingV2
+            USDC
         };
     }
 
@@ -790,7 +777,7 @@ describe.only("TGT Staking", function () {
             expect(userInfo[1]).to.be.equal(0);
         });
 
-        it.only("should properly calculate and distribute rewards for multiple users in different time periods ", async function () {
+        it("should properly calculate and distribute rewards for multiple users in different time periods ", async function () {
 
             const {
                 tgtStaking,
@@ -800,26 +787,20 @@ describe.only("TGT Staking", function () {
                 dev,
                 bob,
                 carol,
-                tgtMaker,
-                tgtStakingV2,
+                tgtMaker
             } = await loadFixture(
                 deployFixture,
             );
             await tgtStaking.connect(dev).setDepositFeePercent(ethers.utils.parseEther("0"));
-            // await tgtStakingV2.connect(dev).setDepositFeePercent(ethers.utils.parseEther("0"));
             // await rewardToken.connect(tgtMaker).transfer(tgtStaking.address, ethers.utils.parseEther("100"));
 
             await tgtStaking.connect(alice).deposit(ethers.utils.parseEther("100"));
             await tgtStaking.connect(carol).deposit(ethers.utils.parseEther("100"));
 
-            // await tgtStakingV2.connect(alice).deposit(ethers.utils.parseEther("100"));
             await increase(86400 * 365);
             await tgtStaking.connect(bob).deposit(ethers.utils.parseEther("100")); // Bob enters
-            // await tgtStakingV2.connect(carol).deposit(ethers.utils.parseEther("100"));
-            // await tgtStakingV2.connect(bob).deposit(ethers.utils.parseEther("100")); // Bob enters
             await increase(86400 * 10);
             await rewardToken.connect(tgtMaker).transfer(tgtStaking.address, ethers.utils.parseEther("100"));
-            // await rewardToken.connect(tgtMaker).transfer(tgtStakingV2.address, ethers.utils.parseEther("100"));
 
             // alice = 100 1 year = 2x
             // bob= 100 7 days = 1x
@@ -828,15 +809,11 @@ describe.only("TGT Staking", function () {
             // alice = 2 x share = 50
 
             console.log("Reward pool balance: ", ethers.utils.formatEther(await rewardToken.balanceOf(tgtStaking.address)));
-            // console.log("v2 Reward pool balance: ", ethers.utils.formatEther(await rewardToken.balanceOf(tgtStakingV2.address)));
             console.log("accRewardPerShare: ", ethers.utils.formatEther(await tgtStaking.accRewardPerShare(rewardToken.address)));
-            // console.log("v2 accRewardPerShare: ", ethers.utils.formatEther(await tgtStakingV2.accRewardPerShare(rewardToken.address)));
 
-            // console.log("Pending reward for Alice: " + await tgtStaking.pendingReward(alice.address, rewardToken.address));
-            // console.log("Pending reward for Bob: " + await tgtStaking.pendingReward(bob.address, rewardToken.address));
-            // console.log("Pending reward for Carol: " + await tgtStaking.pendingReward(carol.address, rewardToken.address));
-
+            //TODO fix requiring to call updateMultiplierCoefficient() for proper calculation of pending rewards
             await tgtStaking.updateMultiplierCoefficient();
+
             console.log("Staking multiplier for Alice: " + ethers.utils.formatEther(await tgtStaking.getStakingMultiplier(alice.address)));
             console.log("Pending reward for Alice: " + ethers.utils.formatEther((await tgtStaking.pendingReward(alice.address, rewardToken.address))));
             console.log("--------------------------------------");
@@ -847,26 +824,19 @@ describe.only("TGT Staking", function () {
             console.log("Pending reward for Carol: " + ethers.utils.formatEther(await tgtStaking.pendingReward(carol.address, rewardToken.address)));
             console.log("--------------------------------------");
 
-            // console.log("V2 Reward pool balance: ", ethers.utils.formatEther(await rewardToken.balanceOf(tgtStakingV2.address)));
-            // console.log("V2 accRewardPerShare: ", ethers.utils.formatEther(await tgtStakingV2.accRewardPerShare(rewardToken.address)));
-            //
-            // console.log("V2 Pending reward for Alice: " + ethers.utils.formatEther(await tgtStakingV2.pendingReward(alice.address, rewardToken.address)));
-            // console.log("V2 Pending reward for Bob: " + ethers.utils.formatEther(await tgtStakingV2.pendingReward(bob.address, rewardToken.address)));
-            // console.log("V2 Pending reward for Carol: " + ethers.utils.formatEther(await tgtStakingV2.pendingReward(carol.address, rewardToken.address)));
-
             await tgtStaking.connect(alice).withdraw(ethers.utils.parseEther("0"));
             expect(await rewardToken.balanceOf(alice.address)).to.be.closeTo(
-                ethers.utils.parseEther("50"),
+                ethers.utils.parseEther("40"),
                 ethers.utils.parseEther("0.0001")
             );
             await tgtStaking.connect(bob).withdraw(ethers.utils.parseEther("0"));
             expect(await rewardToken.balanceOf(bob.address)).to.be.closeTo(
-                ethers.utils.parseEther("25"),
+                ethers.utils.parseEther("20"),
                 ethers.utils.parseEther("0.0001")
             );
             await tgtStaking.connect(carol).withdraw(ethers.utils.parseEther("0"));
             expect(await rewardToken.balanceOf(carol.address)).to.be.closeTo(
-                ethers.utils.parseEther("25"),
+                ethers.utils.parseEther("40"),
                 ethers.utils.parseEther("0.0001")
             )
             console.log("Pending reward for Alice: " + ethers.utils.formatEther(await tgtStaking.pendingReward(alice.address, rewardToken.address)));
