@@ -6,33 +6,31 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "hardhat/console.sol";
-
 /**
- * @title TGT Staking
+ * @title ZGT Staking
  * @author ZK Finance
- * @notice TGTStaking is a contract that allows TGT deposits and receives stablecoins sent by MoneyMaker's daily
- * harvests. Users deposit TGT and receive a share of what has been sent by MoneyMaker based on their participation of
- * the total deposited TGT. It is similar to a MasterChef, but we allow for claiming of different reward tokens
+ * @notice ZGTStaking is a contract that allows ZGT deposits and receives stablecoins sent by MoneyMaker's daily
+ * harvests. Users deposit ZGT and receive a share of what has been sent by MoneyMaker based on their participation of
+ * the total deposited ZGT. It is similar to a MasterChef, but we allow for claiming of different reward tokens
  * (in case at some point we wish to change the stablecoin rewarded).
  * Every time `updateReward(token)` is called, We distribute the balance of that tokens as rewards to users that are
  * currently staking inside this contract, and they can claim it using `withdraw(0)`
  */
-contract TGTStaking is Ownable {
+contract TGTStakingV2 is Ownable {
     using SafeERC20 for IERC20;
 
     /// @notice Info of each user
     struct UserInfo {
-        uint256 index;
         uint256 amount;
         uint256 depositTimestamp;
         mapping(IERC20 => uint256) rewardDebt;
         /**
-         * @notice We do some fancy math here. Basically, any point in time, the amount of TGTs
+         * @notice We do some fancy math here. Basically, any point in time, the amount of ZGTs
          * entitled to a user but is pending to be distributed is:
          *
          *   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt[token]
          *
-         * Whenever a user deposits or withdraws TGT. Here's what happens:
+         * Whenever a user deposits or withdraws ZGT. Here's what happens:
          *   1. accRewardPerShare (and `lastRewardBalance`) gets updated
          *   2. User receives the pending reward sent to his/her address
          *   3. User's `amount` gets updated
@@ -40,11 +38,11 @@ contract TGTStaking is Ownable {
          */
     }
 
-    IERC20 public tgt;
+    IERC20 public zgt;
 
-    /// @dev Internal balance of TGT, this gets updated on user deposits / withdrawals
-    /// this allows to reward users with TGT
-    uint256 public internalTgtBalance;
+    /// @dev Internal balance of ZGT, this gets updated on user deposits / withdrawals
+    /// this allows to reward users with ZGT
+    uint256 public internalZgtBalance;
     /// @notice Array of tokens that users can claim
     IERC20[] public rewardTokens;
     mapping(IERC20 => bool) public isRewardToken;
@@ -63,25 +61,22 @@ contract TGTStaking is Ownable {
     /// @notice The precision of `accRewardPerShare`
     uint256 public ACC_REWARD_PER_SHARE_PRECISION;
 
-    address[] public depositors;
-    uint256 public totalDepositors;
-    uint256 public multiplierCoefficient;
-    /// @dev Info of each user that stakes TGT
+    /// @dev Info of each user that stakes ZGT
     mapping(address => UserInfo) private userInfo;
 
-    /// @notice Emitted when a user deposits TGT
+    /// @notice Emitted when a user deposits ZGT
     event Deposit(address indexed user, uint256 amount, uint256 fee);
 
     /// @notice Emitted when owner changes the deposit fee percentage
     event DepositFeeChanged(uint256 newFee, uint256 oldFee);
 
-    /// @notice Emitted when a user withdraws TGT
+    /// @notice Emitted when a user withdraws ZGT
     event Withdraw(address indexed user, uint256 amount);
 
     /// @notice Emitted when a user claims reward
     event ClaimReward(address indexed user, address indexed rewardToken, uint256 amount);
 
-    /// @notice Emitted when a user emergency withdraws its TGT
+    /// @notice Emitted when a user emergency withdraws its ZGT
     event EmergencyWithdraw(address indexed user, uint256 amount);
 
     /// @notice Emitted when owner adds a token to the reward tokens list
@@ -91,26 +86,26 @@ contract TGTStaking is Ownable {
     event RewardTokenRemoved(address token);
 
     /**
-     * @notice Initialize a new TGTStaking contract
+     * @notice Initialize a new ZGTStaking contract
      * @dev This contract needs to receive an ERC20 `_rewardToken` in order to distribute them
      * (with MoneyMaker in our case)
      * @param _rewardToken The address of the ERC20 reward token
-     * @param _tgt The address of the TGT token
+     * @param _zgt The address of the ZGT token
      * @param _feeCollector The address where deposit fees will be sent
      * @param _depositFeePercent The deposit fee percent, scaled to 1e18, e.g. 3% is 3e16
      */
-    constructor(
+    constructor (
         IERC20 _rewardToken,
-        IERC20 _tgt,
+        IERC20 _zgt,
         address _feeCollector,
         uint256 _depositFeePercent
     ) {
-        require(address(_rewardToken) != address(0), "TGTStaking: reward token can't be address(0)");
-        require(address(_tgt) != address(0), "TGTStaking: tgt can't be address(0)");
-        require(_feeCollector != address(0), "TGTStaking: fee collector can't be address(0)");
-        require(_depositFeePercent <= 5e17, "TGTStaking: max deposit fee can't be greater than 50%");
+        require(address(_rewardToken) != address(0), "ZGTStaking: reward token can't be address(0)");
+        require(address(_zgt) != address(0), "ZGTStaking: zgt can't be address(0)");
+        require(_feeCollector != address(0), "ZGTStaking: fee collector can't be address(0)");
+        require(_depositFeePercent <= 5e17, "ZGTStaking: max deposit fee can't be greater than 50%");
 
-        tgt = _tgt;
+        zgt = _zgt;
         depositFeePercent = _depositFeePercent;
         feeCollector = _feeCollector;
 
@@ -121,39 +116,35 @@ contract TGTStaking is Ownable {
     }
 
     /**
-     * @notice Deposit TGT for reward token allocation
-     * @param _amount The amount of TGT to deposit
+     * @notice Deposit ZGT for reward token allocation
+     * @param _amount The amount of ZGT to deposit
      */
     function deposit(uint256 _amount) external {
         UserInfo storage user = userInfo[_msgSender()];
-        if (_amount > 0) {
 
-        }
         uint256 _fee = _amount * depositFeePercent / DEPOSIT_FEE_PERCENT_PRECISION;
         uint256 _amountMinusFee = _amount - _fee;
 
         uint256 _previousAmount = user.amount;
-        if (_previousAmount == 0 && _amount > 0) {
-            user.index = totalDepositors;
-            depositors.push(_msgSender());
+//        console.log("user.amount", user.amount);
+        if (_previousAmount == 0) {
             user.depositTimestamp = block.timestamp;
-            totalDepositors += 1;
+//            console.log("deposit: user.depositTimestamp", user.depositTimestamp);
         }
+
         uint256 _newAmount = user.amount + _amountMinusFee;
         user.amount = _newAmount;
 
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
             IERC20 _token = rewardTokens[i];
-            // update reward
-//            console.log("update reward");
             updateReward(_token);
 
             uint256 _previousRewardDebt = user.rewardDebt[_token];
-            user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
+            user.rewardDebt[_token] = _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION;
 
             if (_previousAmount != 0) {
-                uint256 _pending = (getStakingMultiplier(_msgSender()) * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
+                uint256 _pending = _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - _previousRewardDebt;
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -161,11 +152,9 @@ contract TGTStaking is Ownable {
             }
         }
 
-        internalTgtBalance = internalTgtBalance + _amountMinusFee;
-        updateMultiplierCoefficient();
-
-        tgt.safeTransferFrom(_msgSender(), feeCollector, _fee);
-        tgt.safeTransferFrom(_msgSender(), address(this), _amountMinusFee);
+        internalZgtBalance = internalZgtBalance + _amountMinusFee;
+        zgt.safeTransferFrom(_msgSender(), feeCollector, _fee);
+        zgt.safeTransferFrom(_msgSender(), address(this), _amountMinusFee);
         emit Deposit(_msgSender(), _amountMinusFee, _fee);
     }
 
@@ -173,7 +162,7 @@ contract TGTStaking is Ownable {
      * @notice Get user info
      * @param _user The address of the user
      * @param _rewardToken The address of the reward token
-     * @return The amount of TGT user has deposited
+     * @return The amount of ZGT user has deposited
      * @return The reward debt for the chosen token
      */
     function getUserInfo(address _user, IERC20 _rewardToken) external view returns (uint256, uint256) {
@@ -196,9 +185,9 @@ contract TGTStaking is Ownable {
     function addRewardToken(IERC20 _rewardToken) external onlyOwner {
         require(
             !isRewardToken[_rewardToken] && address(_rewardToken) != address(0),
-            "TGTStaking: token can't be added"
+            "ZGTStaking: token can't be added"
         );
-        require(rewardTokens.length < 25, "TGTStaking: list of token too big");
+        require(rewardTokens.length < 25, "ZGTStaking: list of token too big");
         rewardTokens.push(_rewardToken);
         isRewardToken[_rewardToken] = true;
         updateReward(_rewardToken);
@@ -210,7 +199,7 @@ contract TGTStaking is Ownable {
      * @param _rewardToken The address of the reward token
      */
     function removeRewardToken(IERC20 _rewardToken) external onlyOwner {
-        require(isRewardToken[_rewardToken], "TGTStaking: token can't be removed");
+        require(isRewardToken[_rewardToken], "ZGTStaking: token can't be removed");
         updateReward(_rewardToken);
         isRewardToken[_rewardToken] = false;
         uint256 _len = rewardTokens.length;
@@ -229,7 +218,7 @@ contract TGTStaking is Ownable {
      * @param _depositFeePercent The new deposit fee percent
      */
     function setDepositFeePercent(uint256 _depositFeePercent) external onlyOwner {
-        require(_depositFeePercent <= 5e17, "TGTStaking: deposit fee can't be greater than 50%");
+        require(_depositFeePercent <= 5e17, "ZGTStaking: deposit fee can't be greater than 50%");
         uint256 oldFee = depositFeePercent;
         depositFeePercent = _depositFeePercent;
         emit DepositFeeChanged(_depositFeePercent, oldFee);
@@ -242,41 +231,36 @@ contract TGTStaking is Ownable {
      * @return `_user`'s pending reward token
      */
     function pendingReward(address _user, IERC20 _token) external view returns (uint256) {
-        require(isRewardToken[_token], "TGTStaking: wrong reward token");
+        require(isRewardToken[_token], "ZGTStaking: wrong reward token");
         UserInfo storage user = userInfo[_user];
-        uint256 _totalTgt = internalTgtBalance;
+        uint256 _totalZgt = internalZgtBalance;
         uint256 _accRewardTokenPerShare = accRewardPerShare[_token];
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        console.log("multiplierCoefficient", multiplierCoefficient);
+        uint256 _rewardBalance = _token == zgt ? _currRewardBalance - _totalZgt : _currRewardBalance;
 
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
-        console.log("_rewardBalance", _rewardBalance);
-        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
-        console.log("_totalTgt", _totalTgt);
-        if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
+        if (_rewardBalance != lastRewardBalance[_token] && _totalZgt != 0) {
             uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
-            console.log("_accruedReward", _accruedReward);
-            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
-
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
-                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
+                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalZgt
             );
         }
-        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
-        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
+//        console.log(" staking multiplier ", getStakingMultiplier(_msgSender()));
+//        console.log(" user.amount ", user.amount);
+//        console.log("pendingReward: user.depositTimestamp ", user.depositTimestamp);
+//        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
-        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
+        return (getStakingMultiplier(_user) * user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
     }
 
     /**
-     * @notice To just harvest the rewards pass 0 as `_amount`, to harvest and withdraw pass the amount to withdraw
-     * @param _amount The amount of TGT to withdraw if any
+     * @notice Withdraw ZGT and harvest the rewards
+     * @param _amount The amount of ZGT to withdraw
      */
     function withdraw(uint256 _amount) external {
         UserInfo storage user = userInfo[_msgSender()];
         uint256 _previousAmount = user.amount;
-        require(_amount <= _previousAmount, "TGTStaking: withdraw amount exceeds balance");
+        require(_amount <= _previousAmount, "ZGTStaking: withdraw amount exceeds balance");
         uint256 _newAmount = user.amount - _amount;
         user.amount = _newAmount;
 
@@ -285,15 +269,10 @@ contract TGTStaking is Ownable {
             for (uint256 i; i < _len; i++) {
                 IERC20 _token = rewardTokens[i];
                 updateReward(_token);
-//                console.log("rewardDebt", user.rewardDebt[_token]);
-                uint256 _pending = (getStakingMultiplier(_msgSender()) * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
-                user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18;
-//                console.log("getStakingMultiplier", getStakingMultiplier(_msgSender()));
-//                console.log("previousAmount", _previousAmount);
-//                console.log("accRewardPerShare", accRewardPerShare[_token]);
-//                console.log("ACC_REWARD_PER_SHARE_PRECISION", ACC_REWARD_PER_SHARE_PRECISION);
-//                console.log("rewardDebt", user.rewardDebt[_token]);
-//                console.log("pending", _pending);
+
+                uint256 _pending = _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION - user.rewardDebt[_token];
+                user.rewardDebt[_token] = _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION;
+
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -304,12 +283,9 @@ contract TGTStaking is Ownable {
         if (_amount > 0) {
             user.depositTimestamp = 0;
         }
-        if (user.amount == 0) {
-            totalDepositors = totalDepositors - 1;
-        }
 
-        internalTgtBalance = internalTgtBalance - _amount;
-        tgt.safeTransfer(_msgSender(), _amount);
+        internalZgtBalance = internalZgtBalance - _amount;
+        zgt.safeTransfer(_msgSender(), _amount);
         emit Withdraw(_msgSender(), _amount);
     }
 
@@ -318,18 +294,16 @@ contract TGTStaking is Ownable {
      */
     function emergencyWithdraw() external {
         UserInfo storage user = userInfo[_msgSender()];
-
+        user.depositTimestamp = 0;
         uint256 _amount = user.amount;
         user.amount = 0;
-        user.depositTimestamp = 0;
-
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
             IERC20 _token = rewardTokens[i];
             user.rewardDebt[_token] = 0;
         }
-        internalTgtBalance = internalTgtBalance - _amount;
-        tgt.safeTransfer(_msgSender(), _amount);
+        internalZgtBalance = internalZgtBalance - _amount;
+        zgt.safeTransfer(_msgSender(), _amount);
         emit EmergencyWithdraw(_msgSender(), _amount);
     }
 
@@ -339,28 +313,27 @@ contract TGTStaking is Ownable {
      * @dev Needs to be called before any deposit or withdrawal
      */
     function updateReward(IERC20 _token) public {
-        require(isRewardToken[_token], "TGTStaking: wrong reward token");
+        require(isRewardToken[_token], "ZGTStaking: wrong reward token");
 
-        uint256 _totalTgt = internalTgtBalance;
+        uint256 _totalZgt = internalZgtBalance;
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
+        uint256 _rewardBalance = _token == zgt ? _currRewardBalance - _totalZgt : _currRewardBalance;
 
-        // Did TGTStaking receive any token
-        if (_rewardBalance == lastRewardBalance[_token] || _totalTgt == 0) {
-            console.log("no reward balance change");
+        // Did ZGTStaking receive any token
+        if (_rewardBalance == lastRewardBalance[_token] || _totalZgt == 0) {
             return;
         }
 
         uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
         console.log("accRewardPerShare before update", accRewardPerShare[_token]);
-        console.log("_accruedReward", _accruedReward);
-        console.log("_totalTgt", _totalTgt);
+
         accRewardPerShare[_token] = accRewardPerShare[_token] + (
-            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
+            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalZgt
         );
         console.log("accRewardPerShare after update", accRewardPerShare[_token]);
-        lastRewardBalance[_token] = _rewardBalance;
+
+    lastRewardBalance[_token] = _rewardBalance;
     }
 
     /**
@@ -376,7 +349,7 @@ contract TGTStaking is Ownable {
         uint256 _amount
     ) internal {
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - internalTgtBalance : _currRewardBalance;
+        uint256 _rewardBalance = _token == zgt ? _currRewardBalance - internalZgtBalance : _currRewardBalance;
 
         if (_amount > _rewardBalance) {
             lastRewardBalance[_token] = lastRewardBalance[_token] - _rewardBalance;
@@ -389,6 +362,7 @@ contract TGTStaking is Ownable {
 
     function getStakingMultiplier(address _user) public view returns (uint256) {
         UserInfo storage user = userInfo[_user];
+//        console.log("in getStakingMultiplier user.depositTimestamp ", user.depositTimestamp);
         if (user.depositTimestamp == 0) {
             return 0;
         }
@@ -406,31 +380,4 @@ contract TGTStaking is Ownable {
         }
         return 0;
     }
-
-    function getTotalMultiplier() public view returns (uint256){
-        uint256 currentTotalMultiplier;
-        uint256 _len = depositors.length;
-        console.log("depositors", _len);
-        for (uint256 i; i < _len; i++) {
-            address _user = depositors[i];
-            UserInfo storage user = userInfo[_user];
-            currentTotalMultiplier = currentTotalMultiplier + getStakingMultiplier(_user);
-            console.log("currentTotalMultiplier", currentTotalMultiplier);
-        }
-        if (currentTotalMultiplier < totalDepositors) {
-            currentTotalMultiplier = totalDepositors * 1e18;
-        }
-        return currentTotalMultiplier;
-    }
-
-    function updateMultiplierCoefficient() public {
-        console.log("updateMultiplierCoefficient------------------------------------");
-        uint256 totalMultiplier = getTotalMultiplier() / 1e2;
-        console.log("totalDepositors", totalDepositors);
-        console.log("getTotalMultiplier", totalMultiplier);
-        uint256 coefficient = (totalDepositors * 1e18) / totalMultiplier;
-        multiplierCoefficient = coefficient * 1e16;
-        console.log("updateMultiplierCoefficient", multiplierCoefficient);
-    }
-
 }
