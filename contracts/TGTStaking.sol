@@ -293,7 +293,7 @@ contract TGTStaking is Ownable {
 //                console.log("accRewardPerShare", accRewardPerShare[_token]);
 //                console.log("ACC_REWARD_PER_SHARE_PRECISION", ACC_REWARD_PER_SHARE_PRECISION);
 //                console.log("rewardDebt", user.rewardDebt[_token]);
-//                console.log("pending", _pending);
+                console.log("pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -323,6 +323,7 @@ contract TGTStaking is Ownable {
         uint256 _amount = user.amount;
         user.amount = 0;
         user.depositTimestamp = 0;
+        delete depositors[user.index];
 
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
