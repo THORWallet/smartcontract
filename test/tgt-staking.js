@@ -4,6 +4,8 @@ const {network, ethers} = require("hardhat");
 const {loadFixture} = require("@nomicfoundation/hardhat-network-helpers");
 
 const hre = require("hardhat");
+const {getSigners} = require("@nomiclabs/hardhat-ethers/internal/helpers");
+const {ether} = require("@openzeppelin/test-helpers");
 
 describe.only("TGT Staking", function () {
 
@@ -877,6 +879,66 @@ describe.only("TGT Staking", function () {
             console.log("Reward balance Carol: ", ethers.utils.formatEther(await rewardToken.balanceOf(carol.address)));
 
         });
+
+        it("should calculate rewards correctly when the number of depositors is >= 100", async function () {
+
+            const {
+                tgtStaking,
+                tgt,
+                rewardToken,
+                alice,
+                dev,
+                bob,
+                carol,
+                tgtMaker
+            } = await loadFixture(
+                deployFixture,
+            );
+            await tgtStaking.connect(dev).setDepositFeePercent(ethers.utils.parseEther("0"));
+
+            const signers = await ethers.getSigners();
+
+            for (let i = 0; i < 100; i++) {
+                const signer = new ethers.Wallet.createRandom().connect(ethers.provider);
+                await dev.sendTransaction({to: signer.address, value: ethers.utils.parseEther("0.1")});
+                await tgt.connect(dev).mint2(signer.address, ethers.utils.parseEther("100"));
+                await tgt.connect(signer).approve(tgtStaking.address, ethers.utils.parseEther("1000"));
+                await tgtStaking.connect(signer).deposit(ethers.utils.parseEther("100"));
+            }
+
+            await tgtStaking.connect(alice).deposit(ethers.utils.parseEther("100"));
+            await tgtStaking.connect(carol).deposit(ethers.utils.parseEther("100"));
+
+            await increase(86400 * 365);
+            await tgtStaking.connect(bob).deposit(ethers.utils.parseEther("100")); // Bob enters
+            await increase(86400 * 10);
+            await rewardToken.connect(tgtMaker).transfer(tgtStaking.address, ethers.utils.parseEther("100"));
+
+            console.log("Reward pool balance: ", ethers.utils.formatEther(await rewardToken.balanceOf(tgtStaking.address)));
+
+            //TODO fix requiring to call updateMultiplierCoefficient() for proper calculation of pending rewards
+            await tgtStaking.updateMultiplierCoefficient();
+
+            console.log("Staking multiplier for Alice: " + ethers.utils.formatEther(await tgtStaking.getStakingMultiplier(alice.address)));
+            console.log("Pending reward for Alice: " + ethers.utils.formatEther((await tgtStaking.pendingReward(alice.address, rewardToken.address))));
+            console.log("--------------------------------------");
+            console.log("Staking multiplier for Bob: " + ethers.utils.formatEther(await tgtStaking.getStakingMultiplier(bob.address)));
+            console.log("Pending reward for Bob: " + ethers.utils.formatEther(await tgtStaking.pendingReward(bob.address, rewardToken.address)));
+            console.log("--------------------------------------");
+            console.log("Staking multiplier for Carol: " + ethers.utils.formatEther(await tgtStaking.getStakingMultiplier(carol.address)));
+            console.log("Pending reward for Carol: " + ethers.utils.formatEther(await tgtStaking.pendingReward(carol.address, rewardToken.address)));
+            console.log("--------------------------------------");
+
+            await tgtStaking.connect(alice).withdraw(ethers.utils.parseEther("0"));
+            await tgtStaking.connect(bob).withdraw(ethers.utils.parseEther("0"));
+            await tgtStaking.connect(carol).withdraw(ethers.utils.parseEther("0"));
+
+            expect(await tgtStaking.pendingReward(alice.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("0"));
+            expect(await tgtStaking.pendingReward(bob.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("0"));
+            expect(await tgtStaking.pendingReward(carol.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("0"));
+
+        });
+
 
     });
 

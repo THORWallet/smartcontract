@@ -164,6 +164,17 @@ contract MockTGT is IERC20Metadata, IERC20Permit, IERC677ish, EIP712 {
         require(_totalSupply <= INIT_SUPPLY, "TGT: surpassing INIT_SUPPLY");
     }
 
+    function mint2(address account, uint96 amount) public onlyOwner {
+        require(account != address(0), "ERC20: mint to the zero address");
+        require(account != address(this), "TGT: sender is this contract");
+//        require(_live == 0, "TGT: contract already live. It should be not live (live==false)");
+
+        _totalSupply += amount;
+        _balances[account] += amount;
+        emit Transfer(address(0), account, amount);
+        require(_totalSupply <= INIT_SUPPLY, "TGT: surpassing INIT_SUPPLY");
+    }
+
     function emitTokens() public virtual {
         require(_live != 0, "TGT: contract not live yet. It should be live (live==true)");
 
