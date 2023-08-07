@@ -6,7 +6,7 @@
 // https://github.com/goosedefi/goose-contracts/blob/master/contracts/MasterChefV2.sol
 // which was audited
 
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
