@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -152,10 +152,11 @@ contract TGTStaking is Ownable {
             updateReward(_token);
 
             uint256 _previousRewardDebt = user.rewardDebt[_token];
-            user.rewardDebt[_token] = (getStakingMultiplier(_msgSender()) * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
+            uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
+            user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
 
             if (_previousAmount != 0) {
-                uint256 _pending = (getStakingMultiplier(_msgSender()) * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
+                uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);

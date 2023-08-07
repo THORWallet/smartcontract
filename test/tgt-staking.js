@@ -880,7 +880,7 @@ describe.only("TGT Staking", function () {
 
         });
 
-        it("should calculate rewards correctly when the number of depositors is >= 100", async function () {
+        it("should calculate rewards correctly when the number of depositors is >= 1000", async function () {
 
             const {
                 tgtStaking,
@@ -898,7 +898,7 @@ describe.only("TGT Staking", function () {
 
             const signers = await ethers.getSigners();
 
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 1000; i++) {
                 const signer = new ethers.Wallet.createRandom().connect(ethers.provider);
                 await dev.sendTransaction({to: signer.address, value: ethers.utils.parseEther("0.1")});
                 await tgt.connect(dev).mint2(signer.address, ethers.utils.parseEther("100"));
@@ -937,7 +937,7 @@ describe.only("TGT Staking", function () {
             expect(await tgtStaking.pendingReward(bob.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("0"));
             expect(await tgtStaking.pendingReward(carol.address, rewardToken.address)).to.be.equal(ethers.utils.parseEther("0"));
 
-        });
+        }).timeout(1000000);
 
 
     });
