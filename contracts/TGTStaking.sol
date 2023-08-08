@@ -5,7 +5,7 @@ pragma solidity ^0.8.21;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 /**
  * @title TGT Staking
@@ -53,6 +53,10 @@ contract TGTStaking is Ownable {
     mapping(IERC20 => uint256) public lastRewardBalance;
 
     address public feeCollector;
+
+    address public treasury;
+    uint256 public treasuryFeePercent;
+    mapping(IERC20 => uint256) public treasuryRewardDebt;
 
     /// @notice The deposit fee, scaled to `DEPOSIT_FEE_PERCENT_PRECISION`
     uint256 public depositFeePercent;
@@ -105,16 +109,22 @@ contract TGTStaking is Ownable {
         IERC20 _rewardToken,
         IERC20 _tgt,
         address _feeCollector,
-        uint256 _depositFeePercent
+        uint256 _depositFeePercent,
+        address _treasury,
+        uint256 _treasuryFeePercent
     ) {
         require(address(_rewardToken) != address(0), "TGTStaking: reward token can't be address(0)");
         require(address(_tgt) != address(0), "TGTStaking: tgt can't be address(0)");
         require(_feeCollector != address(0), "TGTStaking: fee collector can't be address(0)");
+        require(_treasury != address(0), "TGTStaking: treasury can't be address(0)");
+        require(_treasuryFeePercent <= 5e17, "TGTStaking: max treasury fee can't be greater than 50%");
         require(_depositFeePercent <= 5e17, "TGTStaking: max deposit fee can't be greater than 50%");
 
         tgt = _tgt;
         depositFeePercent = _depositFeePercent;
         feeCollector = _feeCollector;
+        treasury = _treasury;
+        treasuryFeePercent = _treasuryFeePercent;
 
         isRewardToken[_rewardToken] = true;
         rewardTokens.push(_rewardToken);
@@ -259,14 +269,14 @@ contract TGTStaking is Ownable {
 //        console.log("_totalTgt", _totalTgt);
         if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
             uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
-//            console.log("_accruedReward", _accruedReward);
+            //            console.log("_accruedReward", _accruedReward);
 //            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
                 _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
             );
         }
-//        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
+        //        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 //        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
 
         return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
@@ -323,6 +333,32 @@ contract TGTStaking is Ownable {
         internalTgtBalance = internalTgtBalance - _amount;
         tgt.safeTransfer(_msgSender(), _amount);
         emit Withdraw(_msgSender(), _amount);
+    }
+
+    function pendingTreasuryReward(IERC20 _token) external view returns (uint256) {
+        return (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18 - treasuryRewardDebt[_token];
+    }
+
+    function treasuryClaim() external onlyOwner {
+        uint256 _len = rewardTokens.length;
+        for (uint256 i; i < _len; i++) {
+            IERC20 _token = rewardTokens[i];
+            uint256 _previousRewardDebt = treasuryRewardDebt[_token];
+            treasuryRewardDebt[_token] = (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18;
+            uint256 _balance = (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18 - _previousRewardDebt;
+            if (_balance > 0) {
+                safeTokenTransfer(_token, treasury, _balance);
+            }
+        }
+    }
+
+    function updateTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+    }
+
+    function updateTreasuryPercentage(uint256 _treasuryFeePercent) external onlyOwner {
+        require(_treasuryFeePercent <= 5e17, "TGTStaking: max treasury fee can't be greater than 50%");
+        treasuryFeePercent = _treasuryFeePercent;
     }
 
     /**
@@ -401,6 +437,7 @@ contract TGTStaking is Ownable {
         }
     }
 
+    //TODO set multiplier as max = 1x and min = 0.5x
     function getStakingMultiplier(address _user) public view returns (uint256) {
         UserInfo storage user = userInfo[_user];
         if (user.depositTimestamp == 0) {
@@ -439,7 +476,7 @@ contract TGTStaking is Ownable {
         if (currentTotalMultiplier < activeDepositors * 1e18) {
             currentTotalMultiplier = activeDepositors * 1e18;
         }
-        if(currentTotalMultiplier == 0){
+        if (currentTotalMultiplier == 0) {
             currentTotalMultiplier = 1e18;
         }
         return currentTotalMultiplier;
