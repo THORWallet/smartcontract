@@ -175,7 +175,6 @@ contract TGTStaking is Ownable {
         }
 
         internalTgtBalance = internalTgtBalance + _amountMinusFee;
-        updateMultiplierCoefficient();
 
         tgt.safeTransferFrom(_msgSender(), feeCollector, _fee);
         tgt.safeTransferFrom(_msgSender(), address(this), _amountMinusFee);
@@ -263,7 +262,7 @@ contract TGTStaking is Ownable {
         uint256 _currRewardBalance = _token.balanceOf(address(this));
 //        console.log("multiplierCoefficient", multiplierCoefficient);
 //        console.log("_totalTgt", _totalTgt);
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
 //        console.log("_rewardBalance", _rewardBalance);
 //        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
 //        console.log("_totalTgt", _totalTgt);
@@ -273,10 +272,10 @@ contract TGTStaking is Ownable {
 //            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
-                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
+                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
             );
         }
-        //        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
+        // console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 //        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
 
         return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
@@ -390,11 +389,9 @@ contract TGTStaking is Ownable {
     function updateReward(IERC20 _token) public {
         require(isRewardToken[_token], "TGTStaking: wrong reward token");
 
-        updateMultiplierCoefficient();
-
         uint256 _totalTgt = internalTgtBalance;
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
 
         // Did TGTStaking receive any token
         if (_rewardBalance == lastRewardBalance[_token] || _totalTgt == 0) {
@@ -407,8 +404,7 @@ contract TGTStaking is Ownable {
 //        console.log("_accruedReward", _accruedReward);
 //        console.log("_totalTgt", _totalTgt);
         accRewardPerShare[_token] = accRewardPerShare[_token] + (
-            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
-        );
+            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt);
 //        console.log("accRewardPerShare after update", accRewardPerShare[_token]);
         lastRewardBalance[_token] = _rewardBalance;
     }
@@ -437,7 +433,6 @@ contract TGTStaking is Ownable {
         }
     }
 
-    //TODO set multiplier as max = 1x and min = 0.5x
     function getStakingMultiplier(address _user) public view returns (uint256) {
         UserInfo storage user = userInfo[_user];
         if (user.depositTimestamp == 0) {
@@ -445,12 +440,12 @@ contract TGTStaking is Ownable {
         }
         uint256 timeDiff = (block.timestamp - user.depositTimestamp);
         if (timeDiff > 365 days) {
-            return 2e18;
+            return 1e18;
         } else if (timeDiff > (30 days * 6) && timeDiff < 365 days) {
-            return (15e17 + (timeDiff / 365 days));
+            return (75e16 + (timeDiff / 365 days));
         }
         else if (timeDiff > 7 days && timeDiff < (30 days * 6)) {
-            return (1e18 + (timeDiff / (30 days * 6)));
+            return (5e17 + (timeDiff / (30 days * 6)));
         }
         else if (timeDiff < 7 days && timeDiff > 0) {
             return 0;
@@ -458,39 +453,39 @@ contract TGTStaking is Ownable {
         return 0;
     }
 
-    function getTotalMultiplier() public returns (uint256){
-        activeDepositors = 0;
-        uint256 currentTotalMultiplier;
-        uint256 _len = depositors.length;
-//        console.log("depositors", _len);
-        for (uint256 i; i < _len; i++) {
-            address _user = depositors[i];
-            UserInfo storage user = userInfo[_user];
-            uint256 stakingMultiplier = getStakingMultiplier(_user);
-            currentTotalMultiplier = currentTotalMultiplier + stakingMultiplier;
-            if (stakingMultiplier > 0) {
-                activeDepositors = activeDepositors + 1;
-            }
-//            console.log("currentTotalMultiplier", currentTotalMultiplier);
-        }
-        if (currentTotalMultiplier < activeDepositors * 1e18) {
-            currentTotalMultiplier = activeDepositors * 1e18;
-        }
-        if (currentTotalMultiplier == 0) {
-            currentTotalMultiplier = 1e18;
-        }
-        return currentTotalMultiplier;
-    }
+//    function getTotalMultiplier() public returns (uint256){
+//        activeDepositors = 0;
+//        uint256 currentTotalMultiplier;
+//        uint256 _len = depositors.length;
+////        console.log("depositors", _len);
+//        for (uint256 i; i < _len; i++) {
+//            address _user = depositors[i];
+//            UserInfo storage user = userInfo[_user];
+//            uint256 stakingMultiplier = getStakingMultiplier(_user);
+//            currentTotalMultiplier = currentTotalMultiplier + stakingMultiplier;
+//            if (stakingMultiplier > 0) {
+//                activeDepositors = activeDepositors + 1;
+//            }
+////            console.log("currentTotalMultiplier", currentTotalMultiplier);
+//        }
+//        if (currentTotalMultiplier < activeDepositors * 1e18) {
+//            currentTotalMultiplier = activeDepositors * 1e18;
+//        }
+//        if (currentTotalMultiplier == 0) {
+//            currentTotalMultiplier = 1e18;
+//        }
+//        return currentTotalMultiplier;
+//    }
 
-    function updateMultiplierCoefficient() public {
+//    function updateMultiplierCoefficient() public {
 //        console.log("updateMultiplierCoefficient");
-        uint256 totalMultiplier = getTotalMultiplier() / 1e2;
+//        uint256 totalMultiplier = getTotalMultiplier() / 1e2;
 //        console.log("totalDepositors", totalDepositors);
 //        console.log("activeDepositors", activeDepositors);
 //        console.log("getTotalMultiplier", totalMultiplier);
-        uint256 coefficient = (activeDepositors * 1e18) / totalMultiplier;
-        multiplierCoefficient = coefficient * 1e16;
+//        uint256 coefficient = (activeDepositors * 1e18) / totalMultiplier;
+//        multiplierCoefficient = coefficient * 1e16;
 //        console.log("updateMultiplierCoefficient", multiplierCoefficient);
-    }
+//    }
 
 }
