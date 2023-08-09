@@ -22,7 +22,6 @@ contract TGTStaking is Ownable {
 
     /// @notice Info of each user
     struct UserInfo {
-        uint256 index;
         uint256 amount;
         uint256 depositTimestamp;
         mapping(IERC20 => uint256) rewardDebt;
@@ -68,7 +67,6 @@ contract TGTStaking is Ownable {
     /// @notice The precision of `accRewardPerShare`
     uint256 public ACC_REWARD_PER_SHARE_PRECISION;
 
-    address[] public depositors;
     uint256 public totalDepositors;
     uint256 public activeDepositors;
     uint256 public multiplierCoefficient;
@@ -146,8 +144,6 @@ contract TGTStaking is Ownable {
 
         uint256 _previousAmount = user.amount;
         if (_previousAmount == 0 && _amount > 0) {
-            user.index = totalDepositors;
-            depositors.push(_msgSender());
             user.depositTimestamp = block.timestamp;
             totalDepositors += 1;
         }
@@ -277,7 +273,6 @@ contract TGTStaking is Ownable {
         }
         // console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 //        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
-
         return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
     }
 
@@ -297,13 +292,12 @@ contract TGTStaking is Ownable {
             for (uint256 i; i < _len; i++) {
                 IERC20 _token = rewardTokens[i];
                 updateReward(_token);
-//                console.log("rewardDebt before: ", user.rewardDebt[_token]);
+                console.log("rewardDebt before: ", user.rewardDebt[_token]);
 
                 uint256 currentMultiplier = getStakingMultiplier(_msgSender());
                 if (currentMultiplier > user.lastRewardDebtMultiplier[_token]) {
                     user.rewardDebt[_token] = currentMultiplier * user.rewardDebt[_token] / 1e18;
                 }
-//                console.log("rewardDebt after: ", user.rewardDebt[_token]);
 
                 uint256 _pending = (currentMultiplier * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
                 user.rewardDebt[_token] = (currentMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18;
@@ -312,7 +306,7 @@ contract TGTStaking is Ownable {
 //                console.log("previousAmount", _previousAmount);
 //                console.log("accRewardPerShare", accRewardPerShare[_token]);
 //                console.log("ACC_REWARD_PER_SHARE_PRECISION", ACC_REWARD_PER_SHARE_PRECISION);
-//                console.log("rewardDebt after: ", user.rewardDebt[_token]);
+                console.log("rewardDebt after: ", user.rewardDebt[_token]);
 //                console.log("pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
@@ -326,7 +320,6 @@ contract TGTStaking is Ownable {
         }
         if (user.amount == 0 && totalDepositors > 0) {
             totalDepositors = totalDepositors - 1;
-            delete depositors[user.index];
         }
 
         internalTgtBalance = internalTgtBalance - _amount;
@@ -369,7 +362,6 @@ contract TGTStaking is Ownable {
         uint256 _amount = user.amount;
         user.amount = 0;
         user.depositTimestamp = 0;
-        delete depositors[user.index];
 
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
@@ -452,40 +444,5 @@ contract TGTStaking is Ownable {
         }
         return 0;
     }
-
-//    function getTotalMultiplier() public returns (uint256){
-//        activeDepositors = 0;
-//        uint256 currentTotalMultiplier;
-//        uint256 _len = depositors.length;
-////        console.log("depositors", _len);
-//        for (uint256 i; i < _len; i++) {
-//            address _user = depositors[i];
-//            UserInfo storage user = userInfo[_user];
-//            uint256 stakingMultiplier = getStakingMultiplier(_user);
-//            currentTotalMultiplier = currentTotalMultiplier + stakingMultiplier;
-//            if (stakingMultiplier > 0) {
-//                activeDepositors = activeDepositors + 1;
-//            }
-////            console.log("currentTotalMultiplier", currentTotalMultiplier);
-//        }
-//        if (currentTotalMultiplier < activeDepositors * 1e18) {
-//            currentTotalMultiplier = activeDepositors * 1e18;
-//        }
-//        if (currentTotalMultiplier == 0) {
-//            currentTotalMultiplier = 1e18;
-//        }
-//        return currentTotalMultiplier;
-//    }
-
-//    function updateMultiplierCoefficient() public {
-//        console.log("updateMultiplierCoefficient");
-//        uint256 totalMultiplier = getTotalMultiplier() / 1e2;
-//        console.log("totalDepositors", totalDepositors);
-//        console.log("activeDepositors", activeDepositors);
-//        console.log("getTotalMultiplier", totalMultiplier);
-//        uint256 coefficient = (activeDepositors * 1e18) / totalMultiplier;
-//        multiplierCoefficient = coefficient * 1e16;
-//        console.log("updateMultiplierCoefficient", multiplierCoefficient);
-//    }
 
 }
