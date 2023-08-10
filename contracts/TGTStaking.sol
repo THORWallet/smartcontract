@@ -5,7 +5,7 @@ pragma solidity ^0.8.21;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /**
  * @title TGT Staking
@@ -67,9 +67,6 @@ contract TGTStaking is Ownable {
     /// @notice The precision of `accRewardPerShare`
     uint256 public ACC_REWARD_PER_SHARE_PRECISION;
 
-    uint256 public totalDepositors;
-    uint256 public activeDepositors;
-    uint256 public multiplierCoefficient;
     uint256 public MULTIPLIER_PRECISION = 1e18;
 
     /// @dev Info of each user that stakes TGT
@@ -147,7 +144,6 @@ contract TGTStaking is Ownable {
         uint256 _previousAmount = user.amount;
         if (_previousAmount == 0 && _amount > 0) {
             user.depositTimestamp = block.timestamp;
-            totalDepositors += 1;
         }
         uint256 _newAmount = user.amount + _amountMinusFee;
         user.amount = _newAmount;
@@ -160,11 +156,11 @@ contract TGTStaking is Ownable {
             uint256 _previousRewardDebt = user.rewardDebt[_token];
             uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
             user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / MULTIPLIER_PRECISION;
-            console.log("rewardDebt after: ", user.rewardDebt[_token]);
+//            console.log("rewardDebt after: ", user.rewardDebt[_token]);
 
             if (_previousAmount != 0) {
                 uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - _previousRewardDebt);
-                console.log("deposit pending", _pending);
+//                console.log("deposit pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -258,23 +254,22 @@ contract TGTStaking is Ownable {
         uint256 _accRewardTokenPerShare = accRewardPerShare[_token];
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-//        console.log("multiplierCoefficient", multiplierCoefficient);
 //        console.log("_totalTgt", _totalTgt);
         uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
-//        console.log("_rewardBalance", _rewardBalance);
+//        console.log("pending#_rewardBalance", _rewardBalance);
 //        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
 //        console.log("_totalTgt", _totalTgt);
         if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
-            uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
-            //            console.log("_accruedReward", _accruedReward);
+            uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token]; // 175 - 25
+//            console.log("_accruedReward", _accruedReward);
 //            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
                 _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
             );
         }
-        // console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
-//        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
+//        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
+//        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token]));
         return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token]);
     }
 
@@ -294,7 +289,7 @@ contract TGTStaking is Ownable {
             for (uint256 i; i < _len; i++) {
                 IERC20 _token = rewardTokens[i];
                 updateReward(_token);
-                console.log("rewardDebt before: ", user.rewardDebt[_token]);
+//                console.log("rewardDebt before: ", user.rewardDebt[_token]);
 
                 uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
                 if (stakingMultiplier > user.lastRewardDebtMultiplier[_token]) {
@@ -306,11 +301,11 @@ contract TGTStaking is Ownable {
                 user.rewardDebt[_token] = (stakingMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION;
                 user.lastRewardDebtMultiplier[_token] = stakingMultiplier;
 //                console.log("getStakingMultiplier", getStakingMultiplier(_msgSender()));
-                console.log("previousAmount", _previousAmount);
+//                console.log("previousAmount", _previousAmount);
 //                console.log("accRewardPerShare", accRewardPerShare[_token]);
 //                console.log("ACC_REWARD_PER_SHARE_PRECISION", ACC_REWARD_PER_SHARE_PRECISION);
-                console.log("rewardDebt after: ", user.rewardDebt[_token]);
-                console.log("pending", _pending);
+//                console.log("rewardDebt after: ", user.rewardDebt[_token]);
+//                console.log("pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -320,9 +315,6 @@ contract TGTStaking is Ownable {
 
         if (_amount > 0) {
             user.depositTimestamp = 0;
-        }
-        if (user.amount == 0 && totalDepositors > 0) {
-            totalDepositors = totalDepositors - 1;
         }
 
         internalTgtBalance = internalTgtBalance - _amount;
@@ -437,10 +429,10 @@ contract TGTStaking is Ownable {
         if (timeDiff > 365 days) {
             return 1e18;
         } else if (timeDiff > (30 days * 6) && timeDiff < 365 days) {
-            return (75e16 + (timeDiff / 365 days));
+            return (75e16 + (timeDiff / (30 days * 6)));
         }
         else if (timeDiff > 7 days && timeDiff < (30 days * 6)) {
-            return (5e17 + (timeDiff / (30 days * 6)));
+            return (5e17 + (timeDiff / 7 days ));
         }
         else if (timeDiff < 7 days && timeDiff > 0) {
             return 0;
