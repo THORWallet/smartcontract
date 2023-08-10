@@ -70,6 +70,8 @@ contract TGTStaking is Ownable {
     uint256 public totalDepositors;
     uint256 public activeDepositors;
     uint256 public multiplierCoefficient;
+    uint256 public MULTIPLIER_PRECISION = 1e18;
+
     /// @dev Info of each user that stakes TGT
     mapping(address => UserInfo) private userInfo;
 
@@ -153,16 +155,16 @@ contract TGTStaking is Ownable {
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
             IERC20 _token = rewardTokens[i];
-            // update reward
-//            console.log("update reward");
             updateReward(_token);
 
             uint256 _previousRewardDebt = user.rewardDebt[_token];
             uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
-            user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
+            user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / MULTIPLIER_PRECISION;
+            console.log("rewardDebt after: ", user.rewardDebt[_token]);
 
             if (_previousAmount != 0) {
-                uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
+                uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - _previousRewardDebt);
+                console.log("deposit pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -273,7 +275,7 @@ contract TGTStaking is Ownable {
         }
         // console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 //        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
-        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
+        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token]);
     }
 
     /**
@@ -294,20 +296,21 @@ contract TGTStaking is Ownable {
                 updateReward(_token);
                 console.log("rewardDebt before: ", user.rewardDebt[_token]);
 
-                uint256 currentMultiplier = getStakingMultiplier(_msgSender());
-                if (currentMultiplier > user.lastRewardDebtMultiplier[_token]) {
-                    user.rewardDebt[_token] = currentMultiplier * user.rewardDebt[_token] / 1e18;
+                uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
+                if (stakingMultiplier > user.lastRewardDebtMultiplier[_token]) {
+                    user.rewardDebt[_token] = stakingMultiplier * user.rewardDebt[_token] / MULTIPLIER_PRECISION;
                 }
-
-                uint256 _pending = (currentMultiplier * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
-                user.rewardDebt[_token] = (currentMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18;
-                user.lastRewardDebtMultiplier[_token] = currentMultiplier;
+//                console.log("rewardDebt before 2: ", user.rewardDebt[_token]);
+//                console.log("getStakingMultiplier", stakingMultiplier);
+                uint256 _pending = (stakingMultiplier * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token];
+                user.rewardDebt[_token] = (stakingMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION;
+                user.lastRewardDebtMultiplier[_token] = stakingMultiplier;
 //                console.log("getStakingMultiplier", getStakingMultiplier(_msgSender()));
-//                console.log("previousAmount", _previousAmount);
+                console.log("previousAmount", _previousAmount);
 //                console.log("accRewardPerShare", accRewardPerShare[_token]);
 //                console.log("ACC_REWARD_PER_SHARE_PRECISION", ACC_REWARD_PER_SHARE_PRECISION);
                 console.log("rewardDebt after: ", user.rewardDebt[_token]);
-//                console.log("pending", _pending);
+                console.log("pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
