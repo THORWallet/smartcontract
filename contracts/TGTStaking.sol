@@ -22,7 +22,6 @@ contract TGTStaking is Ownable {
 
     /// @notice Info of each user
     struct UserInfo {
-        uint256 index;
         uint256 amount;
         uint256 depositTimestamp;
         mapping(IERC20 => uint256) rewardDebt;
@@ -54,6 +53,10 @@ contract TGTStaking is Ownable {
 
     address public feeCollector;
 
+    address public treasury;
+    uint256 public treasuryFeePercent;
+    mapping(IERC20 => uint256) public treasuryRewardDebt;
+
     /// @notice The deposit fee, scaled to `DEPOSIT_FEE_PERCENT_PRECISION`
     uint256 public depositFeePercent;
     /// @notice The precision of `depositFeePercent`
@@ -64,10 +67,8 @@ contract TGTStaking is Ownable {
     /// @notice The precision of `accRewardPerShare`
     uint256 public ACC_REWARD_PER_SHARE_PRECISION;
 
-    address[] public depositors;
-    uint256 public totalDepositors;
-    uint256 public activeDepositors;
-    uint256 public multiplierCoefficient;
+    uint256 public MULTIPLIER_PRECISION = 1e18;
+
     /// @dev Info of each user that stakes TGT
     mapping(address => UserInfo) private userInfo;
 
@@ -105,16 +106,22 @@ contract TGTStaking is Ownable {
         IERC20 _rewardToken,
         IERC20 _tgt,
         address _feeCollector,
-        uint256 _depositFeePercent
+        uint256 _depositFeePercent,
+        address _treasury,
+        uint256 _treasuryFeePercent
     ) {
         require(address(_rewardToken) != address(0), "TGTStaking: reward token can't be address(0)");
         require(address(_tgt) != address(0), "TGTStaking: tgt can't be address(0)");
         require(_feeCollector != address(0), "TGTStaking: fee collector can't be address(0)");
+        require(_treasury != address(0), "TGTStaking: treasury can't be address(0)");
+        require(_treasuryFeePercent <= 5e17, "TGTStaking: max treasury fee can't be greater than 50%");
         require(_depositFeePercent <= 5e17, "TGTStaking: max deposit fee can't be greater than 50%");
 
         tgt = _tgt;
         depositFeePercent = _depositFeePercent;
         feeCollector = _feeCollector;
+        treasury = _treasury;
+        treasuryFeePercent = _treasuryFeePercent;
 
         isRewardToken[_rewardToken] = true;
         rewardTokens.push(_rewardToken);
@@ -136,10 +143,7 @@ contract TGTStaking is Ownable {
 
         uint256 _previousAmount = user.amount;
         if (_previousAmount == 0 && _amount > 0) {
-            user.index = totalDepositors;
-            depositors.push(_msgSender());
             user.depositTimestamp = block.timestamp;
-            totalDepositors += 1;
         }
         uint256 _newAmount = user.amount + _amountMinusFee;
         user.amount = _newAmount;
@@ -147,16 +151,16 @@ contract TGTStaking is Ownable {
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
             IERC20 _token = rewardTokens[i];
-            // update reward
-//            console.log("update reward");
             updateReward(_token);
 
             uint256 _previousRewardDebt = user.rewardDebt[_token];
             uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
-            user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / 1e18;
+            user.rewardDebt[_token] = (stakingMultiplier * (_newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION)) / MULTIPLIER_PRECISION;
+//            console.log("rewardDebt after: ", user.rewardDebt[_token]);
 
             if (_previousAmount != 0) {
-                uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - _previousRewardDebt);
+                uint256 _pending = (stakingMultiplier * (_previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - _previousRewardDebt);
+//                console.log("deposit pending", _pending);
                 if (_pending != 0) {
                     safeTokenTransfer(_token, _msgSender(), _pending);
                     emit ClaimReward(_msgSender(), address(_token), _pending);
@@ -165,7 +169,6 @@ contract TGTStaking is Ownable {
         }
 
         internalTgtBalance = internalTgtBalance + _amountMinusFee;
-        updateMultiplierCoefficient();
 
         tgt.safeTransferFrom(_msgSender(), feeCollector, _fee);
         tgt.safeTransferFrom(_msgSender(), address(this), _amountMinusFee);
@@ -251,25 +254,23 @@ contract TGTStaking is Ownable {
         uint256 _accRewardTokenPerShare = accRewardPerShare[_token];
 
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-//        console.log("multiplierCoefficient", multiplierCoefficient);
 //        console.log("_totalTgt", _totalTgt);
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
-//        console.log("_rewardBalance", _rewardBalance);
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
+//        console.log("pending#_rewardBalance", _rewardBalance);
 //        console.log("lastRewardBalance[_token]", lastRewardBalance[_token]);
 //        console.log("_totalTgt", _totalTgt);
         if (_rewardBalance != lastRewardBalance[_token] && _totalTgt != 0) {
-            uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token];
+            uint256 _accruedReward = _rewardBalance - lastRewardBalance[_token]; // 175 - 25
 //            console.log("_accruedReward", _accruedReward);
 //            console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
 
             _accRewardTokenPerShare = _accRewardTokenPerShare + (
-                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
+                _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt
             );
         }
 //        console.log("_accRewardTokenPerShare", _accRewardTokenPerShare);
-//        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]));
-
-        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token]);
+//        console.log("pr(_user)", (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token]));
+        return (getStakingMultiplier(_user) * (user.amount * _accRewardTokenPerShare / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token]);
     }
 
     /**
@@ -290,15 +291,15 @@ contract TGTStaking is Ownable {
                 updateReward(_token);
 //                console.log("rewardDebt before: ", user.rewardDebt[_token]);
 
-                uint256 currentMultiplier = getStakingMultiplier(_msgSender());
-                if (currentMultiplier > user.lastRewardDebtMultiplier[_token]) {
-                    user.rewardDebt[_token] = currentMultiplier * user.rewardDebt[_token] / 1e18;
+                uint256 stakingMultiplier = getStakingMultiplier(_msgSender());
+                if (stakingMultiplier > user.lastRewardDebtMultiplier[_token]) {
+                    user.rewardDebt[_token] = stakingMultiplier * user.rewardDebt[_token] / MULTIPLIER_PRECISION;
                 }
-//                console.log("rewardDebt after: ", user.rewardDebt[_token]);
-
-                uint256 _pending = (currentMultiplier * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18 - user.rewardDebt[_token];
-                user.rewardDebt[_token] = (currentMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / 1e18;
-                user.lastRewardDebtMultiplier[_token] = currentMultiplier;
+//                console.log("rewardDebt before 2: ", user.rewardDebt[_token]);
+//                console.log("getStakingMultiplier", stakingMultiplier);
+                uint256 _pending = (stakingMultiplier * _previousAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION - user.rewardDebt[_token];
+                user.rewardDebt[_token] = (stakingMultiplier * _newAmount * accRewardPerShare[_token] / ACC_REWARD_PER_SHARE_PRECISION) / MULTIPLIER_PRECISION;
+                user.lastRewardDebtMultiplier[_token] = stakingMultiplier;
 //                console.log("getStakingMultiplier", getStakingMultiplier(_msgSender()));
 //                console.log("previousAmount", _previousAmount);
 //                console.log("accRewardPerShare", accRewardPerShare[_token]);
@@ -315,14 +316,36 @@ contract TGTStaking is Ownable {
         if (_amount > 0) {
             user.depositTimestamp = 0;
         }
-        if (user.amount == 0 && totalDepositors > 0) {
-            totalDepositors = totalDepositors - 1;
-            delete depositors[user.index];
-        }
 
         internalTgtBalance = internalTgtBalance - _amount;
         tgt.safeTransfer(_msgSender(), _amount);
         emit Withdraw(_msgSender(), _amount);
+    }
+
+    function pendingTreasuryReward(IERC20 _token) external view returns (uint256) {
+        return (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18 - treasuryRewardDebt[_token];
+    }
+
+    function treasuryClaim() external onlyOwner {
+        uint256 _len = rewardTokens.length;
+        for (uint256 i; i < _len; i++) {
+            IERC20 _token = rewardTokens[i];
+            uint256 _previousRewardDebt = treasuryRewardDebt[_token];
+            treasuryRewardDebt[_token] = (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18;
+            uint256 _balance = (_token.balanceOf(address(this)) * treasuryFeePercent) / 1e18 - _previousRewardDebt;
+            if (_balance > 0) {
+                safeTokenTransfer(_token, treasury, _balance);
+            }
+        }
+    }
+
+    function updateTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+    }
+
+    function updateTreasuryPercentage(uint256 _treasuryFeePercent) external onlyOwner {
+        require(_treasuryFeePercent <= 5e17, "TGTStaking: max treasury fee can't be greater than 50%");
+        treasuryFeePercent = _treasuryFeePercent;
     }
 
     /**
@@ -334,7 +357,6 @@ contract TGTStaking is Ownable {
         uint256 _amount = user.amount;
         user.amount = 0;
         user.depositTimestamp = 0;
-        delete depositors[user.index];
 
         uint256 _len = rewardTokens.length;
         for (uint256 i; i < _len; i++) {
@@ -354,11 +376,9 @@ contract TGTStaking is Ownable {
     function updateReward(IERC20 _token) public {
         require(isRewardToken[_token], "TGTStaking: wrong reward token");
 
-        updateMultiplierCoefficient();
-
         uint256 _totalTgt = internalTgtBalance;
         uint256 _currRewardBalance = _token.balanceOf(address(this));
-        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - ((_totalTgt * 1e18) / multiplierCoefficient) : _currRewardBalance;
+        uint256 _rewardBalance = _token == tgt ? _currRewardBalance - _totalTgt : _currRewardBalance;
 
         // Did TGTStaking receive any token
         if (_rewardBalance == lastRewardBalance[_token] || _totalTgt == 0) {
@@ -371,8 +391,7 @@ contract TGTStaking is Ownable {
 //        console.log("_accruedReward", _accruedReward);
 //        console.log("_totalTgt", _totalTgt);
         accRewardPerShare[_token] = accRewardPerShare[_token] + (
-            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / ((_totalTgt * 1e18) / multiplierCoefficient)
-        );
+            _accruedReward * ACC_REWARD_PER_SHARE_PRECISION / _totalTgt);
 //        console.log("accRewardPerShare after update", accRewardPerShare[_token]);
         lastRewardBalance[_token] = _rewardBalance;
     }
@@ -408,52 +427,17 @@ contract TGTStaking is Ownable {
         }
         uint256 timeDiff = (block.timestamp - user.depositTimestamp);
         if (timeDiff > 365 days) {
-            return 2e18;
+            return 1e18;
         } else if (timeDiff > (30 days * 6) && timeDiff < 365 days) {
-            return (15e17 + (timeDiff / 365 days));
+            return (75e16 + (timeDiff / (30 days * 6)));
         }
         else if (timeDiff > 7 days && timeDiff < (30 days * 6)) {
-            return (1e18 + (timeDiff / (30 days * 6)));
+            return (5e17 + (timeDiff / 7 days ));
         }
         else if (timeDiff < 7 days && timeDiff > 0) {
             return 0;
         }
         return 0;
-    }
-
-    function getTotalMultiplier() public returns (uint256){
-        activeDepositors = 0;
-        uint256 currentTotalMultiplier;
-        uint256 _len = depositors.length;
-//        console.log("depositors", _len);
-        for (uint256 i; i < _len; i++) {
-            address _user = depositors[i];
-            UserInfo storage user = userInfo[_user];
-            uint256 stakingMultiplier = getStakingMultiplier(_user);
-            currentTotalMultiplier = currentTotalMultiplier + stakingMultiplier;
-            if (stakingMultiplier > 0) {
-                activeDepositors = activeDepositors + 1;
-            }
-//            console.log("currentTotalMultiplier", currentTotalMultiplier);
-        }
-        if (currentTotalMultiplier < activeDepositors * 1e18) {
-            currentTotalMultiplier = activeDepositors * 1e18;
-        }
-        if(currentTotalMultiplier == 0){
-            currentTotalMultiplier = 1e18;
-        }
-        return currentTotalMultiplier;
-    }
-
-    function updateMultiplierCoefficient() public {
-//        console.log("updateMultiplierCoefficient");
-        uint256 totalMultiplier = getTotalMultiplier() / 1e2;
-//        console.log("totalDepositors", totalDepositors);
-//        console.log("activeDepositors", activeDepositors);
-//        console.log("getTotalMultiplier", totalMultiplier);
-        uint256 coefficient = (activeDepositors * 1e18) / totalMultiplier;
-        multiplierCoefficient = coefficient * 1e16;
-//        console.log("updateMultiplierCoefficient", multiplierCoefficient);
     }
 
 }
